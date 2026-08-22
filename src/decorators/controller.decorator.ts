@@ -194,6 +194,16 @@ async function getContextData(args: RouteArgResolver, c: Context, next: Next): P
       return data ? c.req.header(data.toString()) : c.req.header();
     }
     case RouteParamTypes.IP: {
+      const options = data as { trustProxy?: boolean } | undefined;
+
+      if (options?.trustProxy) {
+        const forwarded = c.req.header('x-forwarded-for')?.split(',')[0]?.trim();
+
+        if (forwarded) {
+          return forwarded;
+        }
+      }
+
       try {
         const { getConnInfo } = await import('hono/deno');
 

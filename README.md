@@ -5,11 +5,27 @@
 
 > ⚠️ **EXPERIMENTAL**: This library is in early development and highly experimental. APIs may change without notice. Not recommended for production use.
 
-Honest is a decorator-driven application toolkit for Deno's [Hono](https://jsr.io/@hono/hono).
+Honest is a decorator-driven application toolkit for Deno's [Hono](https://jsr.io/@hono/hono). It provides controllers, modules, explicit dependency injection, middleware decorators, and route argument resolvers in a small API surface built around standard decorators.
 
-It provides controllers, modules, explicit dependency injection, middleware decorators, and route argument resolvers in a small API surface built around standard decorators.
+Honest is the same idea as [oakest](https://github.com/thomas3577/oakest) — a decorator-driven, NestJS-like toolkit — but built on Hono instead of [Oak](https://jsr.io/@oak/oak). See [Differences from oakest](#differences-from-oakest) at the end if you know oakest already.
 
-Honest is the same idea as [oakest](https://github.com/thomas3577/oakest) — a decorator-driven, NestJS-like toolkit — but built on Hono instead of [Oak](https://jsr.io/@oak/oak). See [Differences from oakest](#differences-from-oakest) below if you know oakest already.
+## Contents
+
+- [Highlights](#highlights)
+- [Quick Start](#quick-start)
+- [API Overview](#api-overview)
+  - [Modules](#modules)
+  - [Controllers](#controllers)
+  - [Route Arguments](#route-arguments)
+  - [Providers](#providers)
+  - [Custom Middleware Decorators](#custom-middleware-decorators)
+  - [Custom Route Argument Resolvers](#custom-route-argument-resolvers)
+- [Advanced Features](#advanced-features)
+  - [Validation](#validation)
+  - [Request Scope](#request-scope)
+  - [Error Handling](#error-handling)
+  - [Production Hardening](#production-hardening)
+- [Differences from oakest](#differences-from-oakest)
 
 ## Highlights
 
@@ -18,6 +34,9 @@ Honest is the same idea as [oakest](https://github.com/thomas3577/oakest) — a 
 - **Standard Decorators**: Build on the current TC39 decorator model instead of legacy experimental decorators.
 - **Middleware Decorators**: Attach reusable request guards and flow control directly to route methods.
 - **Route Argument Resolvers**: Map params, body, query, headers, request, response, context, or custom values directly on route decorators.
+- **Schema Validation**: Validate the body, query, params, or headers against any [Standard Schema](https://standardschema.dev)-compatible library (Zod, Valibot, ArkType) with no added dependency.
+- **Built-in Error Handling**: A ready-made `errorHandler()` turns thrown errors into clean, consistent responses.
+- **Request Scope**: Opt in to a fresh, per-request instance for values that shouldn't be long-lived singletons.
 
 ## Quick Start
 
@@ -75,44 +94,6 @@ Run your app and the following endpoints will be available:
 - `/api/v1/util/user-agent`
 - `/api/v1/util/multiply?f1=2&f2=4`
 
-## Differences from oakest
-
-Honest mirrors oakest's decorator API almost 1:1, but Hono's request-handling model is architecturally different from Oak's, which shows up in a few places:
-
-- **`assignModule()` returns a Hono app, not a middleware.** Oak's `assignModule()` returned a `Middleware` you passed to `app.use(...)`. Hono routers and apps are the same kind of object, so `assignModule()` now returns a full `Hono` instance — mount it with `app.route('/', assignModule(AppModule))` (or use it directly as your root app / fetch handler).
-- **`res()` is an alias for `ctx()`.** Hono has no separate mutable response object like Oak's `context.response` — everything is expressed by what the handler returns. Both `res()` and `ctx()` resolve to the same Hono `Context`; prefer `ctx()` in new code.
-- **Handler return values are mapped to a response automatically:**
-
-  | Return value                 | Response                                       |
-  | :--------------------------- | :--------------------------------------------- |
-  | `undefined`                  | 404 (via `c.notFound()`) — "nothing to send"   |
-  | `null`                       | JSON `null`, status 200 — a deliberate value   |
-  | a `Response` instance        | returned as-is (escape hatch for full control) |
-  | `string`                     | `text/plain` via `c.text(...)`                 |
-  | `Uint8Array` / `ArrayBuffer` | raw body via `c.body(...)`                     |
-  | anything else                | JSON via `c.json(...)`                         |
-
-  Only `undefined` means "no result" — `null` is valid, serializable JSON and is sent as such.
-
-- **`ip()` requires Deno's connection info.** Hono has no built-in client IP like Oak's `request.ip`. Honest's `ip()` resolver lazily loads Hono's Deno adapter (`getConnInfo` from `hono/deno`, only when `ip()` is actually used) and resolves to `''` when no real connection is available (for example, when calling routes in tests via `app.request()` instead of a real `Deno.serve`).
-- **Middleware short-circuits by returning a `Response`, not by mutating-then-returning.** Oak middleware denied a request by mutating `context.response` and returning `void`. Hono middleware denies a request by `return`ing a `Response` directly instead of calling `next()` — see [Custom Middleware Decorators](#custom-middleware-decorators) below.
-- **Errors fall back to Hono's default `onError` behavior.** Honest doesn't install a custom error handler, so an uncaught error in a handler or middleware produces Hono's default 500 response. If you want your own error shape, register `app.onError(...)` on your top-level app:
-
-  ```typescript
-  import { Hono } from 'hono';
-  import { assignModule } from '@dx/honest';
-  import { AppModule } from './app.module.ts';
-
-  const app = new Hono();
-  app.route('/', assignModule(AppModule));
-  app.onError((err, c) => {
-    console.error(err);
-    return c.json({ error: 'Internal Server Error' }, 500);
-  });
-
-  Deno.serve(app.fetch);
-  ```
-
 ## API Overview
 
 ### Modules
@@ -144,8 +125,6 @@ export class AppModule {}
 
 ### Controllers
 
-#### Routing
-
 A controller is a class annotated with a `@Controller()` decorator. Controllers are responsible for handling incoming requests and returning responses to the client.
 The `@Controller()` decorator takes an optional route path prefix.
 
@@ -165,7 +144,7 @@ The `@Get()` HTTP request method decorator before the `findAll()` method tells t
 
 For http methods, you can use `@Get()`, `@Post()`, `@Put()`, `@Patch()`, `@Delete()`, `@All()`.
 
-#### Route arguments
+### Route Arguments
 
 Handlers can map request-derived values directly on the HTTP method decorator.
 
@@ -183,24 +162,30 @@ export class SampleController {
 
 Available resolvers:
 
-| name                     | result                                                                  |
-| :----------------------- | :---------------------------------------------------------------------- |
-| `req()`                  | `c.req` (the Hono request)                                              |
-| `res()`                  | alias for `ctx()` (Hono has no separate response object)                |
-| `next()`                 | Hono `next` handler                                                     |
-| `query(key?)`            | `URLSearchParams` or a single query value                               |
-| `param(key?)`            | route params object or a single route param                             |
-| `body(key?)`             | parsed JSON body or a single body property                              |
-| `headers(name?)`         | all headers as an object or a single header value                       |
-| `ip()`                   | client IP (Deno only, via `hono/deno`'s `getConnInfo`; `''` if unknown) |
-| `ctx()`                  | the full Hono `Context`                                                 |
-| `custom(handler, data?)` | custom async/sync value resolver, typed from the handler return value   |
+| name                       | result                                                                        |
+| :------------------------- | :---------------------------------------------------------------------------- |
+| `req()`                    | `c.req` (the Hono request)                                                    |
+| `res()`                    | alias for `ctx()` (Hono has no separate response object)                      |
+| `next()`                   | Hono `next` handler                                                           |
+| `query(key?)`              | `URLSearchParams` or a single query value                                     |
+| `param(key?)`              | route params object or a single route param                                   |
+| `body(key?)`               | parsed JSON body or a single body property                                    |
+| `headers(name?)`           | all headers as an object or a single header value                             |
+| `ip(options?)`             | client IP (Deno only, via `hono/deno`'s `getConnInfo`; `''` if unknown)       |
+| `ctx()`                    | the full Hono `Context`                                                       |
+| `custom(handler, data?)`   | custom async/sync value resolver, typed from the handler return value         |
+| `scoped(Provider)`         | a request-scoped instance of `Provider` — see [Request Scope](#request-scope) |
+| `validatedBody(schema)`    | the JSON body, validated against a schema — see [Validation](#validation)     |
+| `validatedQuery(schema)`   | the query string, validated against a schema — see [Validation](#validation)  |
+| `validatedParam(schema)`   | the route params, validated against a schema — see [Validation](#validation)  |
+| `validatedHeaders(schema)` | the headers, validated against a schema — see [Validation](#validation)       |
 
-`key?`/`name?` on the lookup resolvers (`query`, `param`, `body`, `headers`) must be a string or omitted — passing anything else throws a `TypeError` immediately at decoration time, rather than silently resolving to "no key" at request time. `custom(handler, data?)` is the exception: `data` is a free-form payload passed through to `handler` unchanged, so it accepts any value.
+Notes on resolver arguments:
 
-If the handler declares exactly one parameter and no resolver array, Honest still injects `ctx` automatically.
-
-If the handler uses a resolver array and declares exactly one extra trailing parameter, that final parameter receives `ctx` automatically.
+- `ip()` accepts an optional `{ trustProxy?: boolean }`. It defaults to `false` (uses the raw connection address); pass `{ trustProxy: true }` to prefer `X-Forwarded-For` when running behind a reverse proxy/load balancer you control — don't enable it otherwise, since that header is client-spoofable.
+- `key?`/`name?` on the lookup resolvers (`query`, `param`, `body`, `headers`) must be a string or omitted — passing anything else throws a `TypeError` immediately at decoration time, rather than silently resolving to "no key" at request time. `custom(handler, data?)` is the exception: `data` is a free-form payload passed through to `handler` unchanged, so it accepts any value.
+- If the handler declares exactly one parameter and no resolver array, Honest still injects `ctx` automatically.
+- If the handler uses a resolver array and declares exactly one extra trailing parameter, that final parameter receives `ctx` automatically.
 
 ### Providers
 
@@ -272,6 +257,7 @@ Dependency injection notes:
 - `@Injectable({ implementing: TOKEN })` can still be used to bind string or symbol tokens and resolve them with `inject<T>(TOKEN)`.
 - `isSingleton: false` is no longer supported in this Needle-based mode.
 - `experimentalDecorators` is not needed in `deno.json`.
+- Constructor `inject(...)` always resolves against long-lived singletons, built once when the app starts. For a value that must be fresh per request instead, use the `scoped()` resolver — see [Request Scope](#request-scope).
 
 ### Custom Middleware Decorators
 
@@ -322,7 +308,7 @@ export class SampleController {
 }
 ```
 
-### Custom route argument resolvers
+### Custom Route Argument Resolvers
 
 Custom route inputs can be declared inline with `custom(...)`. The resolver type is inferred from the handler return value.
 
@@ -354,3 +340,125 @@ export class ProductsController {
   }
 }
 ```
+
+## Advanced Features
+
+### Validation
+
+`validatedBody(schema)`, `validatedQuery(schema)`, `validatedParam(schema)`, and `validatedHeaders(schema)` validate the JSON body, query string, route params, or headers against any schema implementing the [Standard Schema](https://standardschema.dev) interface — Zod (>=3.24), Valibot, and ArkType all work out of the box, and honest doesn't depend on any of them. On failure they throw `ValidationError`, which `errorHandler()` (see [Error Handling](#error-handling)) turns into a `400` response with the schema's issues. Malformed JSON in `validatedBody()` is reported the same way, not as a 500. Repeated query keys (`?ids=1&ids=2`) are preserved as a string array by `validatedQuery()` instead of being collapsed to the last value.
+
+```typescript
+import { Controller, Post, validatedBody } from '@dx/honest';
+import { z } from 'zod';
+
+const CreateUserSchema = z.object({ name: z.string(), email: z.string().email() });
+
+@Controller('users')
+export class UsersController {
+  @Post([validatedBody(CreateUserSchema)])
+  create(user: z.infer<typeof CreateUserSchema>) {
+    return { status: 'ok', user };
+  }
+}
+```
+
+### Request Scope
+
+Controllers and providers are built once per `assignModule()` call, not per request — constructor `inject(...)` always resolves against those long-lived singletons. For values that genuinely need to be fresh per request (e.g. a unit-of-work or a per-request cache), use the `scoped()` resolver instead of constructor injection:
+
+```typescript
+import { Controller, Get, inject, scoped } from '@dx/honest';
+import { DbConnection } from './db-connection.ts'; // a regular, singleton provider
+
+export class UnitOfWork {
+  // scoped() classes can still inject() the module's singletons — only
+  // UnitOfWork itself is fresh per request.
+  constructor(readonly db = inject(DbConnection)) {}
+}
+
+@Controller('orders')
+export class OrdersController {
+  @Get(':id', [scoped(UnitOfWork)])
+  findOne(unitOfWork: UnitOfWork) {
+    return unitOfWork.db.query(/* ... */);
+  }
+}
+```
+
+`scoped()` is backed by a real needle-di child container, created once per request by `assignModule()`'s own middleware — repeated `scoped()` calls within the same request return the same instance, and a fresh one is used for the next request. It only works on controllers mounted via `assignModule()`; calling it on a controller test-mounted by hand throws a clear error. This is an opt-in mechanism scoped to the resolver argument list — it doesn't change how constructor `inject(...)` works anywhere else.
+
+### Error Handling
+
+Honest ships a ready-made `app.onError()` handler instead of a copy-paste recipe: `errorHandler()` maps `ValidationError` (thrown by the validation resolvers above) to a `400` with the schema's issues, `HttpError` to its own status/details, and anything else to a logged, generic `500`.
+
+```typescript
+import { Hono } from 'hono';
+import { assignModule, errorHandler, HttpError } from '@dx/honest';
+import { AppModule } from './app.module.ts';
+
+const app = new Hono();
+app.route('/', assignModule(AppModule));
+app.onError(errorHandler());
+
+Deno.serve(app.fetch);
+```
+
+Throw `HttpError(status, message, details?)` from a handler, provider, or middleware to produce a specific response through the same handler:
+
+```typescript
+import { Get, HttpError } from '@dx/honest';
+
+@Get(':id')
+findOne(id: string) {
+  const item = this.service.find(id);
+  if (!item) throw new HttpError(404, 'Not found', { id });
+  return item;
+}
+```
+
+`HttpError`'s status is validated when constructed: it must be an integer between 100 and 599, and can't be a status that isn't allowed to carry a body (101, 204, 205, 304) — since `HttpError` always renders one.
+
+### Production Hardening
+
+None of the following needs any honest-specific code — `assignModule()` returns a plain `Hono` instance, so Hono's own middleware (and the wider Hono ecosystem) applies directly, before you mount your module:
+
+```typescript
+import { Hono } from 'hono';
+import { cors } from 'hono/cors';
+import { secureHeaders } from 'hono/secure-headers';
+import { assignModule, errorHandler } from '@dx/honest';
+import { AppModule } from './app.module.ts';
+
+const app = new Hono();
+app.use(cors({ origin: 'https://example.com' }));
+app.use(secureHeaders());
+app.route('/', assignModule(AppModule));
+app.onError(errorHandler());
+
+Deno.serve(app.fetch);
+```
+
+For rate limiting, use a Hono-compatible middleware package (e.g. `hono-rate-limiter`) the same way. None of this is bundled with honest itself — it's plain Hono middleware, applied to the app `assignModule()` gives you.
+
+## Differences from oakest
+
+Honest mirrors oakest's decorator API almost 1:1, but Hono's request-handling model is architecturally different from Oak's, which shows up in a few places:
+
+- **`assignModule()` returns a Hono app, not a middleware.** Oak's `assignModule()` returned a `Middleware` you passed to `app.use(...)`. Hono routers and apps are the same kind of object, so `assignModule()` now returns a full `Hono` instance — mount it with `app.route('/', assignModule(AppModule))` (or use it directly as your root app / fetch handler).
+- **`res()` is an alias for `ctx()`.** Hono has no separate mutable response object like Oak's `context.response` — everything is expressed by what the handler returns. Both `res()` and `ctx()` resolve to the same Hono `Context`; prefer `ctx()` in new code.
+- **Handler return values are mapped to a response automatically:**
+
+  | Return value                 | Response                                       |
+  | :--------------------------- | :--------------------------------------------- |
+  | `undefined`                  | 404 (via `c.notFound()`) — "nothing to send"   |
+  | `null`                       | JSON `null`, status 200 — a deliberate value   |
+  | a `Response` instance        | returned as-is (escape hatch for full control) |
+  | `string`                     | `text/plain` via `c.text(...)`                 |
+  | `Uint8Array` / `ArrayBuffer` | raw body via `c.body(...)`                     |
+  | anything else                | JSON via `c.json(...)`                         |
+
+  Only `undefined` means "no result" — `null` is valid, serializable JSON and is sent as such.
+
+- **`ip()` requires Deno's connection info.** Hono has no built-in client IP like Oak's `request.ip`. Honest's `ip()` resolver lazily loads Hono's Deno adapter (`getConnInfo` from `hono/deno`, only when `ip()` is actually used) and resolves to `''` when no real connection is available (for example, when calling routes in tests via `app.request()` instead of a real `Deno.serve`).
+- **Middleware short-circuits by returning a `Response`, not by mutating-then-returning.** Oak middleware denied a request by mutating `context.response` and returning `void`. Hono middleware denies a request by `return`ing a `Response` directly instead of calling `next()` — see [Custom Middleware Decorators](#custom-middleware-decorators) above.
+- **Errors fall back to Hono's default `onError` behavior unless you install `errorHandler()`.** See [Error Handling](#error-handling) above.

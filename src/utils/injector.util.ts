@@ -23,11 +23,12 @@ const getInjectableMetadata = (target: ClassConstructor): InjectableMetadata => 
   };
 };
 
-class NeedleInjector {
-  #container = new Container();
+export class NeedleInjector {
+  #container: Container;
   #boundTokens = new Set<unknown>();
 
-  constructor(private readonly providers: ClassConstructor[] = []) {
+  constructor(private readonly providers: ClassConstructor[] = [], parent?: Container) {
+    this.#container = new Container(parent);
     this.providers.forEach((provider) => this.#bindProvider(provider));
   }
 
@@ -35,6 +36,18 @@ class NeedleInjector {
     this.#bindClass(target, false);
 
     return this.#container.get(target);
+  }
+
+  /**
+   * Creates a child injector backed by a fresh needle-di child container.
+   * Anything not explicitly (re-)provided here transparently falls back to
+   * this injector's own container, so a scoped provider can safely
+   * `inject(...)` this injector's singletons while still getting its own
+   * fresh instance per scope (e.g. per HTTP request — see `scoped()` in
+   * decorators/route-params.decorator.ts).
+   */
+  createScope(providers: ClassConstructor[] = []): NeedleInjector {
+    return new NeedleInjector(providers, this.#container);
   }
 
   #bindProvider(provider: ClassConstructor): void {

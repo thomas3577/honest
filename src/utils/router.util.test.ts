@@ -4,6 +4,7 @@ import { Controller } from '../decorators/controller.decorator.ts';
 import { Get } from '../decorators/http-methods.decorator.ts';
 import { inject, Injectable } from '../decorators/injectable.ts';
 import { Module } from '../decorators/module.decorator.ts';
+import { scoped } from '../decorators/route-params.decorator.ts';
 import type { ClassConstructor } from '../types.ts';
 import { assignModule } from './router.util.ts';
 
@@ -170,4 +171,42 @@ Deno.test('assignModule() throws a clear error when @Module() metadata is missin
   const error = assertThrows(() => assignModule(MissingModuleMetadata as unknown as ClassConstructor)) as Error;
 
   assertEquals(error.message, 'Module MissingModuleMetadata is missing @Module() metadata.');
+});
+
+@Injectable()
+class ScopeSharedProvider {
+  readonly id = crypto.randomUUID();
+}
+
+class RequestScopedWidget {
+  readonly id = crypto.randomUUID();
+
+  constructor(readonly shared = inject(ScopeSharedProvider)) {}
+}
+
+@Controller('widgets')
+class ScopedController {
+  @Get('current', [scoped(RequestScopedWidget)])
+  current(widget: RequestScopedWidget) {
+    return { widgetId: widget.id, sharedId: widget.shared.id };
+  }
+}
+
+@Module({ controllers: [ScopedController], providers: [ScopeSharedProvider] })
+class ScopedModule {}
+
+Deno.test('scoped() resolves a fresh instance per request, while shared module singletons stay stable', async () => {
+  const app = assignModule(ScopedModule);
+
+  const firstResponse = await app.request('/widgets/current');
+  const secondResponse = await app.request('/widgets/current');
+
+  assertEquals(firstResponse.status, 200);
+  assertEquals(secondResponse.status, 200);
+
+  const first = await firstResponse.json();
+  const second = await secondResponse.json();
+
+  assertEquals(first.widgetId === second.widgetId, false);
+  assertEquals(first.sharedId, second.sharedId);
 });

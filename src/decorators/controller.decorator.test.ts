@@ -73,7 +73,7 @@ const mountController = (controller: { path?: string; route?: Hono; init(routePr
 
 @Controller('users')
 class ParameterController {
-  @Post(':id', [ctx<Context>(), req<Context['req']>(), res<Context>(), next<() => Promise<unknown>>(), query<URLSearchParams>(), param<Record<string, string>>(), body<Record<string, string>>(), headers<Record<string, string>>(), ip<string>()])
+  @Post(':id', [ctx<Context>(), req<Context['req']>(), res<Context>(), next<() => Promise<unknown>>(), query<URLSearchParams>(), param<Record<string, string>>(), body<Record<string, string>>(), headers<Record<string, string>>(), ip()])
   create(
     requestContext: Context,
     request: Context['req'],
@@ -414,4 +414,33 @@ Deno.test('sendResult() maps handler return values onto a Hono Response', async 
   const objectResponse = await app.request('/object');
   assertEquals(objectResponse.status, 200);
   assertEquals(await objectResponse.json(), { ok: true });
+});
+
+@Controller('geo')
+class IpProxyController {
+  @Get('trusted', [ip({ trustProxy: true })])
+  trusted(ipAddress: string) {
+    return { ip: ipAddress };
+  }
+
+  @Get('untrusted', [ip()])
+  untrusted(ipAddress: string) {
+    return { ip: ipAddress };
+  }
+}
+
+Deno.test('ip({ trustProxy: true }) prefers X-Forwarded-For over the raw connection address', async () => {
+  const app = mountController(new IpProxyController() as unknown as ControllerClass);
+
+  const trustedResponse = await app.request('http://localhost/geo/trusted', {
+    headers: { 'x-forwarded-for': '203.0.113.5, 10.0.0.1' },
+  });
+  assertEquals(await trustedResponse.json(), { ip: '203.0.113.5' });
+
+  // Without trustProxy, the header is ignored; app.request() has no real
+  // socket, so this falls back to the documented '' default.
+  const untrustedResponse = await app.request('http://localhost/geo/untrusted', {
+    headers: { 'x-forwarded-for': '203.0.113.5, 10.0.0.1' },
+  });
+  assertEquals(await untrustedResponse.json(), { ip: '' });
 });

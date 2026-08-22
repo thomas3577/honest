@@ -3,7 +3,7 @@ import type { Context } from 'hono';
 
 import { MIDDLEWARE_METADATA, MODULE_METADATA } from '../const.ts';
 import type { ClassConstructor, ControllerClass, CreateRouterOption } from '../types.ts';
-import { createInjector } from './injector.util.ts';
+import { createInjector, type NeedleInjector } from './injector.util.ts';
 import { getMetadata } from './metadata.util.ts';
 
 type Injector = ReturnType<typeof createInjector>;
@@ -11,6 +11,35 @@ type Next = () => Promise<unknown>;
 type MiddlewareHandler = (c: Context, next: Next) => Response | void | Promise<Response | void>;
 type DecoratorMetadataBag = Record<PropertyKey, unknown>;
 type MiddlewareRegistration = { functionName: string; handler: MiddlewareHandler };
+
+/**
+ * A real Symbol, not a string: Hono's `c.set()`/`c.get()` types only accept
+ * `Record<string, any>` keys, so this already needs an `as never` cast
+ * below regardless of the key's runtime type (the underlying `Context`
+ * variable store is a plain `Map`, which accepts any key) — using a Symbol
+ * here, like every other internal metadata key in this codebase
+ * (const.ts), rules out a host app's own `c.set('requestScope', ...)`
+ * silently colliding with honest's internal state.
+ */
+const REQUEST_SCOPE_KEY = Symbol('requestScope');
+
+/**
+ * Stores the per-request child injector on `c` for `assignModule()`.
+ * Hono's `c.set()`/`c.get()` types are keyed off the app's `Variables`
+ * generic, which honest deliberately doesn't require consumers to declare
+ * just for this internal mechanism — the `as never` cast is contained to
+ * these two small, typed helper functions instead of a global
+ * `ContextVariableMap` augmentation (which JSR's `no-slow-types` rule
+ * disallows for published packages).
+ */
+export function setRequestScope(c: Context, scope: NeedleInjector): void {
+  c.set(REQUEST_SCOPE_KEY as never, scope as never);
+}
+
+/** Reads the per-request child injector set by `setRequestScope()`, if any. */
+export function getRequestScope(c: Context): NeedleInjector | undefined {
+  return c.get(REQUEST_SCOPE_KEY as never) as NeedleInjector | undefined;
+}
 
 export const isUndefined = (obj: unknown): obj is undefined => typeof obj === 'undefined';
 export const isString = (fn: unknown): fn is string => typeof fn === 'string';
@@ -94,8 +123,17 @@ const getProviders = (module: ClassConstructor, providers: ClassConstructor[] = 
  */
 export const assignModule = (module: ClassConstructor): Hono => {
   const injector = createInjector(getProviders(module));
+  const router = new Hono();
 
-  return getRouter(module, injector, new Set<ClassConstructor<unknown>>());
+  // Registered before any controller routes are mounted below, since Hono
+  // executes middleware/routes in registration order — a request-scope
+  // must exist before any route (or its own middleware) can read it.
+  router.use('*', async (c, next) => {
+    setRequestScope(c, injector.createScope());
+    await next();
+  });
+
+  return getRouter(module, injector, new Set<ClassConstructor<unknown>>(), undefined, router);
 };
 
 /**

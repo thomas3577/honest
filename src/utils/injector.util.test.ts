@@ -106,3 +106,33 @@ Deno.test('createInjector() rejects providers marked with isSingleton: false', (
 
   assertStrictEquals(error.message, 'Provider _NonSingletonProvider uses isSingleton: false, but explicit Needle injection only supports singleton providers.');
 });
+
+@Injectable()
+class _ScopeSharedSingleton {
+  readonly id = crypto.randomUUID();
+}
+
+class _ScopedConsumer {
+  constructor(readonly shared = inject(_ScopeSharedSingleton)) {}
+}
+
+Deno.test('createScope() returns a fresh instance per scope, while still resolving the parent injector singletons', () => {
+  const rootInjector = createInjector([_ScopeSharedSingleton]);
+
+  const requestOneScope = rootInjector.createScope();
+  const requestTwoScope = rootInjector.createScope();
+
+  const consumerOne = requestOneScope.resolve(_ScopedConsumer);
+  const consumerTwo = requestTwoScope.resolve(_ScopedConsumer);
+
+  assertStrictEquals(consumerOne === consumerTwo, false);
+  assertStrictEquals(consumerOne.shared, consumerTwo.shared);
+  assertStrictEquals(consumerOne.shared, rootInjector.resolve(_ScopeSharedSingleton));
+});
+
+Deno.test('createScope() resolves the same instance for repeated resolves within one scope', () => {
+  const rootInjector = createInjector([_ScopeSharedSingleton]);
+  const requestScope = rootInjector.createScope();
+
+  assertStrictEquals(requestScope.resolve(_ScopedConsumer), requestScope.resolve(_ScopedConsumer));
+});
