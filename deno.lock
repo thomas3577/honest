@@ -1,8 +1,7 @@
 {
   "version": "5",
   "specifiers": {
-    "jsr:@hono/hono@*": "4.13.3",
-    "jsr:@hono/hono@4.13.3": "4.13.3",
+    "jsr:@hono/hono@^4.13.3": "4.13.3",
     "jsr:@needle-di/core@1.2.0": "1.2.0",
     "jsr:@std/assert@*": "1.0.19",
     "jsr:@std/assert@1.0.19": "1.0.19",
@@ -103,7 +102,7 @@
   },
   "workspace": {
     "dependencies": [
-      "jsr:@hono/hono@4.13.3",
+      "jsr:@hono/hono@^4.13.3",
       "jsr:@needle-di/core@1.2.0",
       "jsr:@std/assert@1.0.19",
       "jsr:@std/log@0.224.14"
