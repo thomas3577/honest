@@ -66,6 +66,23 @@ export function Controller<T extends ControllerConstructor>(options?: string): (
         this.#path = prefix + (path ? `/${path}` : '');
 
         const route = new Hono();
+
+        // Class-level middleware (e.g. a controller-wide @UseGuard()) — registered
+        // before any per-method route below, since Hono runs middleware/routes in
+        // registration order. Stored with no propertyKey, a separate namespace
+        // from the per-method MIDDLEWARE_METADATA read via getMetadata(..., meta.functionName) below.
+        //
+        // Read from this instance's own prototype, not the closure-captured
+        // fn.prototype: a class decorator stacked *above* @Controller() (the
+        // common, natural-looking order, e.g. `@UseGuard() @Controller()`)
+        // receives @Controller()'s already-wrapped class as its target, a
+        // subclass of fn — fn.prototype can never see metadata written on a
+        // subclass. `this`'s prototype is always the actual, fully-decorated
+        // class, regardless of decorator order.
+        const classMiddlewares: MiddlewareHandler[] = getMetadata(MIDDLEWARE_METADATA, Object.getPrototypeOf(this) as object) || [];
+
+        classMiddlewares.forEach((handler) => route.use('*', async (c, next) => await handler(c, next)));
+
         const methodMap: Record<HTTPMethods, RouteMethodRegistrar> = {
           get: route.get.bind(route),
           post: route.post.bind(route),

@@ -24,6 +24,7 @@ Initial release: a decorator-driven application toolkit for [Hono](https://jsr.i
 - `Config(schema, source?)`: validates a config source (`Deno.env.toObject()` by default) against a Standard Schema synchronously at construction, exposing a typed `.value` with no cast needed at the call site (`class AppConfig extends Config(schema) {}`).
 - `createTestApp()`, exported separately via `@dx/honest/testing`, builds an ad-hoc module and assigns it — removes the boilerplate of declaring a named module class per test.
 - `healthCheck()`/`isModuleReady()`: a ready-made health/readiness route handler (and the underlying boolean check) reporting whether `initModule()` has completed and `destroyModule()` hasn't started — the shape orchestrators expect from a readiness probe.
+- Guards: `@UseGuard(GuardClass)` gates a route, or (as a class decorator) every route on a controller, behind `GuardClass.canActivate(c)`. The guard is resolved through the request scope, so it can `inject()` module providers; denial throws a plain `HttpError(403)` unless the guard throws its own. Built on a new `registerMiddlewareClassDecorator()`, the class-level counterpart to the existing `registerMiddlewareMethodDecorator()`.
 - Demo app (`demo/`) and full test suite covering the above.
 
 ### Fixed
@@ -45,5 +46,6 @@ _(found and fixed during the initial development of this version, before any ext
 - `initModule()` ran lifecycle hooks on controllers before providers, so a controller injecting a lifecycle-implementing provider (e.g. a `DbConnection`) could run its own `onModuleInit()` before that provider had finished initializing. Providers now run first, and `destroyModule()`'s reverse order tears controllers down before providers.
 - `Config()` no longer leaves an unhandled promise rejection behind when a schema validates asynchronously and that promise later rejects (it was already rejected as unsupported, but the dangling promise itself was never handled).
 - The provider lifecycle-hook check in `assignModule()` now reuses the same `hasOnModuleInit`/`hasOnModuleDestroy` guards `initModule()`/`destroyModule()` use, instead of a second, separately-maintained check.
+- `Controller()` read class-level middleware (used by `@UseGuard()` on a controller) from the wrong prototype — a class decorator applied _above_ `@Controller()` (the natural-looking order) receives `@Controller()`'s already-wrapped class as its target, which `@Controller()`'s own closure could never see, so the middleware was silently never applied regardless of decoration order. Fixed to read from the instance's actual, fully-decorated prototype at call time instead of the decoration-time closure.
 
 [0.1.0-alpha.1]: https://github.com/thomas3577/honest/releases/tag/v0.1.0-alpha.1

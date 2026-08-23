@@ -4,7 +4,7 @@ import type { Context } from 'hono';
 import { MIDDLEWARE_METADATA, MODULE_METADATA } from '../const.ts';
 import type { ClassConstructor, ControllerClass, CreateRouterOption, OnModuleDestroy, OnModuleInit } from '../types.ts';
 import { createInjector, type NeedleInjector } from './injector.util.ts';
-import { getMetadata } from './metadata.util.ts';
+import { defineMetadata, getMetadata } from './metadata.util.ts';
 
 type Next = () => Promise<unknown>;
 type MiddlewareHandler = (c: Context, next: Next) => Response | void | Promise<Response | void>;
@@ -294,4 +294,22 @@ export function registerMiddlewareMethodDecorator<This extends object, Args exte
     functionName: context.name,
     handler,
   }];
+}
+
+/**
+ * Registers a decorator that can be added to a controller class to apply
+ * middleware to every route on it (e.g. a controller-wide `@UseGuard()`).
+ * Unlike `registerMiddlewareMethodDecorator()`, this writes directly to the
+ * permanent metadata store (like `@Injectable`/`@Module`) instead of via
+ * `context.metadata` — a class decorator already has the class reference
+ * (`target`) it needs, so there's no ordering dependency on `@Controller()`
+ * also running to copy it over.
+ *
+ * @param {ClassConstructor} target - the decorated controller class
+ * @param {MiddlewareHandler} handler - decorator handler
+ */
+export function registerMiddlewareClassDecorator(target: ClassConstructor, handler: MiddlewareHandler): void {
+  const existing = getMetadata<MiddlewareHandler[]>(MIDDLEWARE_METADATA, target.prototype) ?? [];
+
+  defineMetadata(MIDDLEWARE_METADATA, [...existing, handler], target.prototype);
 }
