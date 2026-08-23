@@ -6,7 +6,6 @@ import type { ClassConstructor, ControllerClass, CreateRouterOption } from '../t
 import { createInjector, type NeedleInjector } from './injector.util.ts';
 import { getMetadata } from './metadata.util.ts';
 
-type Injector = ReturnType<typeof createInjector>;
 type Next = () => Promise<unknown>;
 type MiddlewareHandler = (c: Context, next: Next) => Response | void | Promise<Response | void>;
 type DecoratorMetadataBag = Record<PropertyKey, unknown>;
@@ -56,7 +55,7 @@ export const mergeRoutePrefix = (prefix?: string, routePrefix?: string): string 
   return normalizedPrefix || normalizedRoutePrefix;
 };
 
-export const getModuleOptions = (module: ClassConstructor): CreateRouterOption => {
+const getModuleOptions = (module: ClassConstructor): CreateRouterOption => {
   const moduleOption = getMetadata(MODULE_METADATA, module.prototype) as CreateRouterOption | undefined;
 
   if (!moduleOption) {
@@ -66,41 +65,30 @@ export const getModuleOptions = (module: ClassConstructor): CreateRouterOption =
   return moduleOption;
 };
 
-const createRouter = (moduleOptions: CreateRouterOption, injector: Injector, controllerTargets: Set<ClassConstructor<unknown>>, prefix?: string, router = new Hono()): Hono => {
-  const { controllers, routePrefix } = moduleOptions;
+/**
+ * Walks a module tree (depth-first, same order `assignModule()` mounts
+ * routes in), deduping controllers already visited via `controllerTargets`,
+ * and calls `visitController` once per not-yet-visited controller with its
+ * fully merged route prefix. Shared by `assignModule()` (which resolves and
+ * mounts each controller) and `buildOpenApiDocument()` (which only needs
+ * the merged prefixes) so the two can never disagree on how prefixes
+ * combine across nested modules.
+ */
+export function walkModuleTree(module: ClassConstructor, prefix: string | undefined, controllerTargets: Set<ClassConstructor>, visitController: (Controller: ClassConstructor, prefixFull: string | undefined) => void): void {
+  const moduleOption = getModuleOptions(module);
+  const prefixFull = mergeRoutePrefix(prefix, moduleOption.routePrefix);
 
-  controllers?.forEach((Controller: ClassConstructor<unknown>) => {
+  moduleOption.controllers?.forEach((Controller) => {
     if (controllerTargets.has(Controller)) {
       return;
     }
 
     controllerTargets.add(Controller);
-
-    const prefixFull = mergeRoutePrefix(prefix, routePrefix);
-    const controller: ControllerClass = injector.resolve(Controller as ClassConstructor<ControllerClass>);
-    controller.init(prefixFull);
-
-    const { path, route } = controller;
-
-    if (!route) {
-      throw new Error(`Controller ${Controller.name} has no route defined.`);
-    }
-
-    router.route(path && path.length > 0 ? path : '/', route);
+    visitController(Controller, prefixFull);
   });
 
-  return router;
-};
-
-const getRouter = (module: ClassConstructor, injector: Injector, controllerTargets: Set<ClassConstructor<unknown>>, prefix?: string, router?: Hono): Hono => {
-  const moduleOption = getModuleOptions(module);
-  const newRouter: Hono = createRouter(moduleOption, injector, controllerTargets, prefix, router);
-  const prefixFull = mergeRoutePrefix(prefix, moduleOption.routePrefix);
-
-  moduleOption.modules?.forEach((module) => getRouter(module, injector, controllerTargets, prefixFull, newRouter)) || [];
-
-  return newRouter;
-};
+  moduleOption.modules?.forEach((subModule) => walkModuleTree(subModule, prefixFull, controllerTargets, visitController));
+}
 
 const getProviders = (module: ClassConstructor, providers: ClassConstructor[] = []): ClassConstructor[] => {
   const moduleOption = getModuleOptions(module);
@@ -133,7 +121,20 @@ export const assignModule = (module: ClassConstructor): Hono => {
     await next();
   });
 
-  return getRouter(module, injector, new Set<ClassConstructor<unknown>>(), undefined, router);
+  walkModuleTree(module, undefined, new Set<ClassConstructor>(), (Controller, prefixFull) => {
+    const controller: ControllerClass = injector.resolve(Controller as ClassConstructor<ControllerClass>);
+    controller.init(prefixFull);
+
+    const { path, route } = controller;
+
+    if (!route) {
+      throw new Error(`Controller ${Controller.name} has no route defined.`);
+    }
+
+    router.route(path && path.length > 0 ? path : '/', route);
+  });
+
+  return router;
 };
 
 /**

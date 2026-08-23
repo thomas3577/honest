@@ -33,5 +33,9 @@ _(found and fixed during the initial development of this version, before any ext
 - `validatedBody()` reports malformed JSON as a clean `ValidationError` (400) instead of letting a raw `SyntaxError` surface as a 500.
 - `validatedQuery()` no longer silently collapses repeated query keys (`?ids=1&ids=2`) to their last value.
 - The internal per-request scope context key uses a `Symbol` (matching every other internal metadata key in this codebase) instead of a plain string, to rule out collisions with a host app's own context variables.
+- `buildOpenApiDocument()` no longer emits a duplicate, conflicting path parameter when a route combines a `:name` URL segment with `validatedParam()`.
+- `buildOpenApiDocument()` correlates `@ApiOperation()`/`@ApiResponse()` to the exact method declaration instead of matching by name alone, so a subclass overriding a route under the same method name with a different path/HTTP method no longer gets the wrong route's documentation.
+- `buildOpenApiDocument()` recognizes Hono's constrained path-param syntax (`:id{[0-9]+}`) instead of leaving the constraint in the generated OpenAPI path.
+- `buildOpenApiDocument()`'s module-tree walk is now shared with `assignModule()` (`walkModuleTree()`) instead of a separate, duplicated traversal.
 
 [0.1.0-alpha.1]: https://github.com/thomas3577/honest/releases/tag/v0.1.0-alpha.1

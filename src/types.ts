@@ -11,6 +11,8 @@ export interface ActionMetadata {
   method: HTTPMethods;
   functionName: string;
   args?: RouteArgResolver[];
+  /** Identifies the exact method declaration this came from — see `getMethodDeclarationId()`. Distinguishes overrides that share a `functionName` but map to a different route. */
+  declarationId?: number;
 }
 
 export interface CreateRouterOption {
@@ -55,6 +57,8 @@ export interface ApiOperationMetadata {
   description?: string;
   deprecated?: boolean;
   excluded?: boolean;
+  /** Identifies the exact method declaration this came from — see `getMethodDeclarationId()`. Distinguishes overrides that share a `functionName` but map to a different route. */
+  declarationId?: number;
 }
 
 export interface ApiResponseMetadata {
@@ -62,6 +66,8 @@ export interface ApiResponseMetadata {
   status: number;
   description?: string;
   schema?: StandardSchema | JsonSchemaObject;
+  /** Identifies the exact method declaration this came from — see `getMethodDeclarationId()`. Distinguishes overrides that share a `functionName` but map to a different route. */
+  declarationId?: number;
 }
 
 export type ValidatedResolverKind = 'body' | 'query' | 'param' | 'headers';

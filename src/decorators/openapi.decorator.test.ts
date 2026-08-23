@@ -7,6 +7,11 @@ import { Controller } from './controller.decorator.ts';
 import { Get, Post } from './http-methods.decorator.ts';
 import { ApiExcludeEndpoint, ApiOperation, ApiResponse, ApiTags } from './openapi.decorator.ts';
 
+/** `declarationId` is an opaque, run-order-dependent identity (see `getMethodDeclarationId()`) — strip it before comparing the rest of the metadata shape. */
+function stripDeclarationId<T extends { declarationId?: number }>(list: T[]): Omit<T, 'declarationId'>[] {
+  return list.map(({ declarationId: _declarationId, ...rest }) => rest);
+}
+
 @ApiTags('users', 'admin')
 @Controller('users')
 class TaggedAfterController {
@@ -46,7 +51,7 @@ Deno.test('ApiOperation() records summary/description metadata per method', () =
   const metadata = getMetadata<ApiOperationMetadata[]>(API_OPERATION_METADATA, OperationController.prototype);
 
   assertExists(metadata);
-  assertEquals(metadata.find((entry) => entry.functionName === 'list'), {
+  assertEquals(stripDeclarationId(metadata).find((entry) => entry.functionName === 'list'), {
     functionName: 'list',
     summary: 'List items',
     description: 'Returns all items.',
@@ -58,17 +63,21 @@ Deno.test('ApiResponse() is stackable, recording one entry per call', () => {
 
   assertExists(metadata);
   const findResponses = metadata.filter((entry) => entry.functionName === 'find');
-  assertEquals(findResponses, [
+  assertEquals(stripDeclarationId(findResponses), [
     { functionName: 'find', status: 404, description: 'Not found' },
     { functionName: 'find', status: 200, description: 'OK' },
   ]);
+  // Both responses were declared on the same @Get(':id') method, so they
+  // share the same declarationId — this is what lets buildOpenApiDocument()
+  // attribute both to that one route.
+  assertEquals(findResponses[0].declarationId, findResponses[1].declarationId);
 });
 
 Deno.test('ApiExcludeEndpoint() marks the operation entry as excluded', () => {
   const metadata = getMetadata<ApiOperationMetadata[]>(API_OPERATION_METADATA, OperationController.prototype);
 
   assertExists(metadata);
-  assertEquals(metadata.find((entry) => entry.functionName === 'internal'), { functionName: 'internal', excluded: true });
+  assertEquals(stripDeclarationId(metadata).find((entry) => entry.functionName === 'internal'), { functionName: 'internal', excluded: true });
 });
 
 @Controller()
@@ -97,13 +106,24 @@ Deno.test('ApiOperation() does not leak metadata between sibling subclasses of a
   const childAMetadata = getMetadata<ApiOperationMetadata[]>(API_OPERATION_METADATA, ApiSiblingChildAController.prototype);
   const childBMetadata = getMetadata<ApiOperationMetadata[]>(API_OPERATION_METADATA, ApiSiblingChildBController.prototype);
 
-  assertEquals(baseMetadata, [{ functionName: 'action', summary: 'base' }]);
-  assertEquals(childAMetadata, [
+  assertExists(baseMetadata);
+  assertExists(childAMetadata);
+  assertExists(childBMetadata);
+  assertEquals(stripDeclarationId(baseMetadata), [{ functionName: 'action', summary: 'base' }]);
+  assertEquals(stripDeclarationId(childAMetadata), [
     { functionName: 'action', summary: 'base' },
     { functionName: 'action', summary: 'child-a' },
   ]);
-  assertEquals(childBMetadata, [
+  assertEquals(stripDeclarationId(childBMetadata), [
     { functionName: 'action', summary: 'base' },
     { functionName: 'action', summary: 'child-b' },
   ]);
+
+  // Same declaration-identity guarantee @ApiOperation() relies on: the
+  // inherited entry matches the base's own declaration everywhere, while
+  // each override's own entry is distinct from it and from its sibling's.
+  assertEquals(childAMetadata[0].declarationId, baseMetadata[0].declarationId);
+  assertEquals(childBMetadata[0].declarationId, baseMetadata[0].declarationId);
+  assertEquals(childAMetadata[1].declarationId === baseMetadata[0].declarationId, false);
+  assertEquals(childAMetadata[1].declarationId === childBMetadata[1].declarationId, false);
 });

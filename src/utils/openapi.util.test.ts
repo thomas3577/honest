@@ -4,7 +4,7 @@ import { ApiExcludeEndpoint, ApiOperation, ApiResponse, ApiTags } from '../decor
 import { Controller } from '../decorators/controller.decorator.ts';
 import { All, Get, Post } from '../decorators/http-methods.decorator.ts';
 import { Module } from '../decorators/module.decorator.ts';
-import { headers, param, query, validatedBody, validatedQuery } from '../decorators/route-params.decorator.ts';
+import { headers, param, query, validatedBody, validatedParam, validatedQuery } from '../decorators/route-params.decorator.ts';
 import type { JsonSchemaObject } from '../openapi-types.ts';
 import type { StandardSchema } from '../standard-schema.ts';
 import { buildOpenApiDocument } from './openapi.util.ts';
@@ -149,4 +149,63 @@ Deno.test('buildOpenApiDocument() maps a plain headers() resolver to a header pa
   const document = buildOpenApiDocument(HeaderModule, { info: { title: 'Test API', version: '1.0.0' } });
 
   assertEquals(document.paths['/headers-widgets'].get.parameters, [{ name: 'x-token', in: 'header', schema: { type: 'string' } }]);
+});
+
+@Controller('items')
+class DedupParamController {
+  @Get(':id', [validatedParam(fakeSchema<{ id: number }>())])
+  get(_params: { id: number }) {}
+}
+
+@Module({ controllers: [DedupParamController] })
+class DedupParamModule {}
+
+Deno.test('buildOpenApiDocument() does not duplicate a path parameter declared both by the URL segment and validatedParam()', () => {
+  const idSchema: JsonSchemaObject = { type: 'object', properties: { id: { type: 'number' } }, required: ['id'] };
+  const document = buildOpenApiDocument(DedupParamModule, {
+    info: { title: 'Test API', version: '1.0.0' },
+    schemaToJsonSchema: () => idSchema,
+  });
+
+  assertEquals(document.paths['/items/{id}'].get.parameters, [{ name: 'id', in: 'path', required: true, schema: { type: 'number' } }]);
+});
+
+@Controller()
+class OverrideBaseController {
+  @ApiOperation({ summary: 'base summary' })
+  @Get('base-path')
+  action() {}
+}
+
+@Controller()
+class OverrideChildController extends OverrideBaseController {
+  @ApiOperation({ summary: 'child summary' })
+  @Post('child-path')
+  override action() {}
+}
+
+@Module({ controllers: [OverrideChildController] })
+class OverrideModule {}
+
+Deno.test('buildOpenApiDocument() attributes @ApiOperation() to the exact route it was declared on, even when an override maps to a different route under the same functionName', () => {
+  const document = buildOpenApiDocument(OverrideModule, { info: { title: 'Test API', version: '1.0.0' } });
+
+  assertEquals(document.paths['/base-path'].get.summary, 'base summary');
+  assertEquals(document.paths['/child-path'].post.summary, 'child summary');
+});
+
+@Controller('items')
+class ConstrainedParamController {
+  @Get(':id{[0-9]+}')
+  get() {}
+}
+
+@Module({ controllers: [ConstrainedParamController] })
+class ConstrainedParamModule {}
+
+Deno.test('buildOpenApiDocument() handles a Hono path-param constraint like :id{[0-9]+}', () => {
+  const document = buildOpenApiDocument(ConstrainedParamModule, { info: { title: 'Test API', version: '1.0.0' } });
+
+  assertEquals(Object.keys(document.paths), ['/items/{id}']);
+  assertEquals(document.paths['/items/{id}'].get.parameters, [{ name: 'id', in: 'path', required: true, schema: { type: 'string', pattern: '[0-9]+' } }]);
 });
