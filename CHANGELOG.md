@@ -23,6 +23,7 @@ Initial release: a decorator-driven application toolkit for [Hono](https://jsr.i
 - Module lifecycle hooks: implement `OnModuleInit`/`OnModuleDestroy` on a controller or provider, run via the new `initModule()`/`destroyModule()`, called explicitly around `assignModule()` (which stays synchronous). A provider is only eagerly built for this if it implements one of the hooks — providers that don't stay exactly as lazily-constructed as before.
 - `Config(schema, source?)`: validates a config source (`Deno.env.toObject()` by default) against a Standard Schema synchronously at construction, exposing a typed `.value` with no cast needed at the call site (`class AppConfig extends Config(schema) {}`).
 - `createTestApp()`, exported separately via `@dx/honest/testing`, builds an ad-hoc module and assigns it — removes the boilerplate of declaring a named module class per test.
+- `healthCheck()`/`isModuleReady()`: a ready-made health/readiness route handler (and the underlying boolean check) reporting whether `initModule()` has completed and `destroyModule()` hasn't started — the shape orchestrators expect from a readiness probe.
 - Demo app (`demo/`) and full test suite covering the above.
 
 ### Fixed

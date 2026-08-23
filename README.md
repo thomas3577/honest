@@ -44,7 +44,7 @@ Honest is the same idea as [oakest](https://github.com/thomas3577/oakest) — a 
 - **Built-in Error Handling**: A ready-made `errorHandler()` turns thrown errors into clean, consistent responses.
 - **Request Scope**: Opt in to a fresh, per-request instance for values that shouldn't be long-lived singletons.
 - **OpenAPI Documentation**: `@ApiTags`/`@ApiOperation`/`@ApiResponse` decorators plus `buildOpenApiDocument()` generate a real OpenAPI 3.1 document — pair it with [Scalar](https://github.com/scalar/scalar) for an interactive API reference, no Swagger/Nest dependency required.
-- **Lifecycle Hooks**: Implement `OnModuleInit`/`OnModuleDestroy` on a controller or provider to run setup/teardown around the rest of your app.
+- **Lifecycle Hooks**: Implement `OnModuleInit`/`OnModuleDestroy` on a controller or provider to run setup/teardown around the rest of your app, plus a ready-made `healthCheck()` route handler for readiness probes.
 - **Config**: `Config(schema)` validates a config source (env vars by default) against the same Standard Schema interface as request validation, exposing a typed, validated `.value`.
 - **Testing Helper**: `createTestApp()` (via `@dx/honest/testing`) skips the module-class boilerplate for tests, while still exercising the real DI/routing pipeline.
 
@@ -470,6 +470,18 @@ Deno.addSignalListener('SIGINT', async () => {
 `initModule()` runs `onModuleInit()` on every controller (always eagerly built) and every provider that implements `OnModuleInit`/`OnModuleDestroy` — a provider that implements neither stays exactly as lazily-constructed as it is today, so this changes nothing for code that doesn't use the hooks. Lifecycle-implementing providers run **before** controllers, so a provider like the `DbConnection` above has already finished its own `onModuleInit()` by the time a controller that injects it runs its; `destroyModule()` runs in the reverse order (controllers before providers). Both stop and propagate on the first error, rather than collecting multiple failures.
 
 This only orders providers before controllers, not a full dependency graph between lifecycle-implementing providers themselves — if one lifecycle provider injects another, list the dependency first in `providers` (honest doesn't (yet) introspect the DI graph to order these automatically).
+
+**Health/readiness check.** `healthCheck(app)` is a ready-made route handler reporting `200` once `initModule(app)` has completed and `503` before that or once `destroyModule(app)` has started — the shape orchestrators (Kubernetes, load balancers) expect from a health/readiness probe:
+
+```typescript
+import { healthCheck } from '@dx/honest';
+
+app.route('/', honestApp);
+app.get('/health', healthCheck(honestApp));
+await initModule(honestApp);
+```
+
+Need a different response shape (uptime, version, dependency checks)? Call `isModuleReady(app)` directly inside your own handler instead of using `healthCheck()`.
 
 ### Error Handling
 
