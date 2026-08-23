@@ -467,7 +467,9 @@ Deno.addSignalListener('SIGINT', async () => {
 });
 ```
 
-`initModule()` runs `onModuleInit()` on every controller (always eagerly built) and every provider that implements `OnModuleInit`/`OnModuleDestroy` — a provider that implements neither stays exactly as lazily-constructed as it is today, so this changes nothing for code that doesn't use the hooks. Hooks run in resolution order (controllers, then lifecycle-implementing providers); `destroyModule()` runs in the reverse order. Both stop and propagate on the first error, rather than collecting multiple failures.
+`initModule()` runs `onModuleInit()` on every controller (always eagerly built) and every provider that implements `OnModuleInit`/`OnModuleDestroy` — a provider that implements neither stays exactly as lazily-constructed as it is today, so this changes nothing for code that doesn't use the hooks. Lifecycle-implementing providers run **before** controllers, so a provider like the `DbConnection` above has already finished its own `onModuleInit()` by the time a controller that injects it runs its; `destroyModule()` runs in the reverse order (controllers before providers). Both stop and propagate on the first error, rather than collecting multiple failures.
+
+This only orders providers before controllers, not a full dependency graph between lifecycle-implementing providers themselves — if one lifecycle provider injects another, list the dependency first in `providers` (honest doesn't (yet) introspect the DI graph to order these automatically).
 
 ### Error Handling
 

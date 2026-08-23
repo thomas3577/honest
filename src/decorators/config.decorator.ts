@@ -41,6 +41,11 @@ export function Config<TSchema extends StandardSchema>(
       const result = schema['~standard'].validate(source());
 
       if (result instanceof Promise) {
+        // We intentionally never use this result, but it's still a live
+        // promise — if it later rejects with nothing attached to it, that
+        // becomes an unhandled rejection (and can crash the process) on
+        // top of the synchronous error thrown below.
+        result.catch(() => {});
         throw new Error('Config() requires a schema that validates synchronously; async validation is not supported.');
       }
 

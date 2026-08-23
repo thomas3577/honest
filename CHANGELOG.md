@@ -41,5 +41,8 @@ _(found and fixed during the initial development of this version, before any ext
 - `buildOpenApiDocument()` recognizes Hono's constrained path-param syntax (`:id{[0-9]+}`) instead of leaving the constraint in the generated OpenAPI path.
 - `buildOpenApiDocument()`'s module-tree walk is now shared with `assignModule()` (`walkModuleTree()`) instead of a separate, duplicated traversal.
 - The README's "swap an implementation by environment" example didn't actually work — it injected the concrete `UserService` class while the module's `providers` could list `MockUserService` instead, which needle-di can't resolve for that token (`No provider(s) found for UserService`). Fixed to use an explicit `implementing` token, which is what actually lets one provider stand in for another.
+- `initModule()` ran lifecycle hooks on controllers before providers, so a controller injecting a lifecycle-implementing provider (e.g. a `DbConnection`) could run its own `onModuleInit()` before that provider had finished initializing. Providers now run first, and `destroyModule()`'s reverse order tears controllers down before providers.
+- `Config()` no longer leaves an unhandled promise rejection behind when a schema validates asynchronously and that promise later rejects (it was already rejected as unsupported, but the dangling promise itself was never handled).
+- The provider lifecycle-hook check in `assignModule()` now reuses the same `hasOnModuleInit`/`hasOnModuleDestroy` guards `initModule()`/`destroyModule()` use, instead of a second, separately-maintained check.
 
 [0.1.0-alpha.1]: https://github.com/thomas3577/honest/releases/tag/v0.1.0-alpha.1

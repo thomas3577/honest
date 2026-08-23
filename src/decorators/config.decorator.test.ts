@@ -42,6 +42,19 @@ Deno.test('Config() throws a clear error for a schema that validates asynchronou
   assertThrows(() => new AppConfig(), Error, 'synchronously');
 });
 
+Deno.test('Config() does not leave an unhandled rejection behind when an async schema later rejects', async () => {
+  const asyncRejectingSchema = fakeSchema<{ port: number }>(() => Promise.reject(new Error('async validator failed')));
+
+  class AppConfig extends Config(asyncRejectingSchema, () => ({})) {}
+
+  assertThrows(() => new AppConfig(), Error, 'synchronously');
+
+  // Give the rejected promise a turn to surface as an unhandled rejection
+  // if Config() hadn't attached a handler to it — that would otherwise
+  // crash the process instead of staying contained to the thrown error above.
+  await new Promise((resolve) => setTimeout(resolve, 0));
+});
+
 Deno.test('Config() defaults its source to Deno.env.toObject()', () => {
   Deno.env.set('HONEST_TEST_PORT', '9090');
 

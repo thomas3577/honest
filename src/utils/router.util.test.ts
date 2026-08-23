@@ -253,7 +253,7 @@ class LifecycleController implements OnModuleInit, OnModuleDestroy {
 @Module({ controllers: [LifecycleController], providers: [LifecycleProvider, UnusedLazyProvider] })
 class LifecycleModule {}
 
-Deno.test('initModule()/destroyModule() run hooks on controllers and lifecycle-implementing providers, leaving providers without hooks lazily unconstructed', async () => {
+Deno.test('initModule()/destroyModule() init a lifecycle provider before a controller that depends on it, and tear down in reverse, leaving providers without hooks lazily unconstructed', async () => {
   lifecycleEvents.length = 0;
 
   const app = assignModule(LifecycleModule);
@@ -262,10 +262,13 @@ Deno.test('initModule()/destroyModule() run hooks on controllers and lifecycle-i
   assertEquals(lifecycleEvents, []);
 
   await initModule(app);
-  assertEquals(lifecycleEvents, ['LifecycleController:init', 'LifecycleProvider:init']);
+  // LifecycleController's constructor injects LifecycleProvider — the provider's own
+  // onModuleInit() (e.g. opening a DB connection) must have already run by the time the
+  // controller's onModuleInit() runs, or the controller would observe a not-yet-initialized dependency.
+  assertEquals(lifecycleEvents, ['LifecycleProvider:init', 'LifecycleController:init']);
 
   await destroyModule(app);
-  assertEquals(lifecycleEvents, ['LifecycleController:init', 'LifecycleProvider:init', 'LifecycleProvider:destroy', 'LifecycleController:destroy']);
+  assertEquals(lifecycleEvents, ['LifecycleProvider:init', 'LifecycleController:init', 'LifecycleController:destroy', 'LifecycleProvider:destroy']);
 
   // UnusedLazyProvider implements neither hook and nothing injects it — it must never be constructed.
   assertEquals(lifecycleEvents.includes('UnusedLazyProvider:constructed'), false);

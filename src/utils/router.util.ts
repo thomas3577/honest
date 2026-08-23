@@ -70,9 +70,11 @@ const getModuleLifecycle = (app: Hono): ModuleLifecycle => {
 /**
  * Runs `onModuleInit()` on every controller/provider instance in the module
  * tree `assignModule()` built for `app`, in the order those instances were
- * resolved (controllers, then providers that implement a lifecycle hook —
- * see `assignModule()`). Stops and propagates on the first error. Await
- * this before serving traffic:
+ * resolved (lifecycle-implementing providers, then controllers — see
+ * `assignModule()` — so a provider like a DB connection has already run
+ * its own `onModuleInit()` by the time a controller that injects it runs
+ * its). Stops and propagates on the first error. Await this before
+ * serving traffic:
  *
  * ```ts
  * const app = new Hono();
@@ -198,6 +200,21 @@ export const assignModule = (module: ClassConstructor): Hono => {
     await next();
   });
 
+  // Resolved before controllers below, so that a provider's onModuleInit()
+  // (e.g. opening a DB connection pool) has already run by the time a
+  // controller that injects it runs its own — see initModule(). Providers
+  // stay lazily-constructed by default (only built when actually injected
+  // somewhere) — eagerly resolving every provider here would change that
+  // for everyone. Only providers that implement a lifecycle hook are
+  // eager-resolved, since that's the only way to guarantee the hook
+  // actually runs; checked on the prototype, so this never instantiates a
+  // provider that doesn't ask for it.
+  providers.forEach((provider) => {
+    if (hasOnModuleInit(provider.prototype) || hasOnModuleDestroy(provider.prototype)) {
+      instances.push(injector.resolve(provider));
+    }
+  });
+
   walkModuleTree(module, undefined, new Set<ClassConstructor>(), (Controller, prefixFull) => {
     const controller: ControllerClass = injector.resolve(Controller as ClassConstructor<ControllerClass>);
     controller.init(prefixFull);
@@ -210,18 +227,6 @@ export const assignModule = (module: ClassConstructor): Hono => {
     }
 
     router.route(path && path.length > 0 ? path : '/', route);
-  });
-
-  // Providers stay lazily-constructed by default (only built when actually
-  // injected somewhere) — eagerly resolving every provider here would
-  // change that for everyone. Only providers that implement a lifecycle
-  // hook are eager-resolved, since that's the only way to guarantee the
-  // hook actually runs; checked on the prototype, so this never
-  // instantiates a provider that doesn't ask for it.
-  providers.forEach((provider) => {
-    if (typeof provider.prototype?.onModuleInit === 'function' || typeof provider.prototype?.onModuleDestroy === 'function') {
-      instances.push(injector.resolve(provider));
-    }
   });
 
   MODULE_LIFECYCLE.set(router, { instances });
