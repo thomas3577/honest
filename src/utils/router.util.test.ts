@@ -1,12 +1,13 @@
-import { assertEquals, assertExists, assertThrows } from '@std/assert';
+import { assertEquals, assertExists, assertRejects, assertThrows } from '@std/assert';
+import { Hono } from 'hono';
 
 import { Controller } from '../decorators/controller.decorator.ts';
 import { Get } from '../decorators/http-methods.decorator.ts';
 import { inject, Injectable } from '../decorators/injectable.ts';
 import { Module } from '../decorators/module.decorator.ts';
 import { scoped } from '../decorators/route-params.decorator.ts';
-import type { ClassConstructor } from '../types.ts';
-import { assignModule } from './router.util.ts';
+import type { ClassConstructor, OnModuleDestroy, OnModuleInit } from '../types.ts';
+import { assignModule, destroyModule, initModule } from './router.util.ts';
 
 const handleModuleRequest = async (module: ClassConstructor, path: string) => {
   const app = assignModule(module);
@@ -209,4 +210,96 @@ Deno.test('scoped() resolves a fresh instance per request, while shared module s
 
   assertEquals(first.widgetId === second.widgetId, false);
   assertEquals(first.sharedId, second.sharedId);
+});
+
+const lifecycleEvents: string[] = [];
+
+@Injectable()
+class UnusedLazyProvider {
+  constructor() {
+    lifecycleEvents.push('UnusedLazyProvider:constructed');
+  }
+}
+
+@Injectable()
+class LifecycleProvider implements OnModuleInit, OnModuleDestroy {
+  onModuleInit(): void {
+    lifecycleEvents.push('LifecycleProvider:init');
+  }
+
+  onModuleDestroy(): void {
+    lifecycleEvents.push('LifecycleProvider:destroy');
+  }
+}
+
+@Controller('lifecycle')
+class LifecycleController implements OnModuleInit, OnModuleDestroy {
+  constructor(private readonly provider = inject(LifecycleProvider)) {}
+
+  @Get('ping')
+  ping() {
+    return 'pong';
+  }
+
+  onModuleInit(): void {
+    lifecycleEvents.push('LifecycleController:init');
+  }
+
+  onModuleDestroy(): void {
+    lifecycleEvents.push('LifecycleController:destroy');
+  }
+}
+
+@Module({ controllers: [LifecycleController], providers: [LifecycleProvider, UnusedLazyProvider] })
+class LifecycleModule {}
+
+Deno.test('initModule()/destroyModule() run hooks on controllers and lifecycle-implementing providers, leaving providers without hooks lazily unconstructed', async () => {
+  lifecycleEvents.length = 0;
+
+  const app = assignModule(LifecycleModule);
+
+  // Nothing runs just from assignModule() — hooks are opt-in, run only once explicitly awaited.
+  assertEquals(lifecycleEvents, []);
+
+  await initModule(app);
+  assertEquals(lifecycleEvents, ['LifecycleController:init', 'LifecycleProvider:init']);
+
+  await destroyModule(app);
+  assertEquals(lifecycleEvents, ['LifecycleController:init', 'LifecycleProvider:init', 'LifecycleProvider:destroy', 'LifecycleController:destroy']);
+
+  // UnusedLazyProvider implements neither hook and nothing injects it — it must never be constructed.
+  assertEquals(lifecycleEvents.includes('UnusedLazyProvider:constructed'), false);
+});
+
+@Injectable()
+class ThrowingInitProvider implements OnModuleInit {
+  onModuleInit(): void {
+    throw new Error('boom-init');
+  }
+}
+
+@Controller('throwing')
+class ThrowingInitController {
+  constructor(private readonly provider = inject(ThrowingInitProvider)) {}
+
+  @Get('ping')
+  ping() {
+    return 'pong';
+  }
+}
+
+@Module({ controllers: [ThrowingInitController], providers: [ThrowingInitProvider] })
+class ThrowingInitModule {}
+
+Deno.test('initModule() propagates an error thrown by a hook', async () => {
+  const app = assignModule(ThrowingInitModule);
+
+  await assertRejects(() => initModule(app), Error, 'boom-init');
+});
+
+Deno.test('initModule()/destroyModule() throw a clear error when given a Hono instance not returned by assignModule()', async () => {
+  const app = new Hono();
+
+  await assertRejects(() => initModule(app), Error, 'initModule()/destroyModule() must be called with the exact Hono instance returned by assignModule().');
+  await assertRejects(() => destroyModule(app), Error, 'initModule()/destroyModule() must be called with the exact Hono instance returned by assignModule().');
 });

@@ -4,6 +4,7 @@
  * @module
  */
 
+export { Config } from './config.decorator.ts';
 export { Controller } from './controller.decorator.ts';
 export { All, Delete, Get, Patch, Post, Put } from './http-methods.decorator.ts';
 export { inject, Injectable } from './injectable.ts';

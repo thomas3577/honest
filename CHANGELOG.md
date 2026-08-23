@@ -20,6 +20,9 @@ Initial release: a decorator-driven application toolkit for [Hono](https://jsr.i
 - Proxy-aware `ip({ trustProxy: true })` option for reading `X-Forwarded-For` behind a trusted reverse proxy.
 - `scoped()` resolver for request-scoped dependency injection, backed by a needle-di child container created once per request.
 - OpenAPI documentation: `@ApiTags`, `@ApiOperation`, `@ApiResponse`, `@ApiExcludeEndpoint` decorators and `buildOpenApiDocument()`, which reads the module tree's existing decorator metadata (no controller/provider instantiation) into an OpenAPI 3.1 document. Request/response shapes backed by `validatedBody`/`validatedQuery`/`validatedParam`/`validatedHeaders` are included when a `schemaToJsonSchema` converter is supplied (e.g. Zod's `z.toJSONSchema`). Demo wires this up with [Scalar](https://github.com/scalar/scalar) at `/reference`.
+- Module lifecycle hooks: implement `OnModuleInit`/`OnModuleDestroy` on a controller or provider, run via the new `initModule()`/`destroyModule()`, called explicitly around `assignModule()` (which stays synchronous). A provider is only eagerly built for this if it implements one of the hooks — providers that don't stay exactly as lazily-constructed as before.
+- `Config(schema, source?)`: validates a config source (`Deno.env.toObject()` by default) against a Standard Schema synchronously at construction, exposing a typed `.value` with no cast needed at the call site (`class AppConfig extends Config(schema) {}`).
+- `createTestApp()`, exported separately via `@dx/honest/testing`, builds an ad-hoc module and assigns it — removes the boilerplate of declaring a named module class per test.
 - Demo app (`demo/`) and full test suite covering the above.
 
 ### Fixed
@@ -37,5 +40,6 @@ _(found and fixed during the initial development of this version, before any ext
 - `buildOpenApiDocument()` correlates `@ApiOperation()`/`@ApiResponse()` to the exact method declaration instead of matching by name alone, so a subclass overriding a route under the same method name with a different path/HTTP method no longer gets the wrong route's documentation.
 - `buildOpenApiDocument()` recognizes Hono's constrained path-param syntax (`:id{[0-9]+}`) instead of leaving the constraint in the generated OpenAPI path.
 - `buildOpenApiDocument()`'s module-tree walk is now shared with `assignModule()` (`walkModuleTree()`) instead of a separate, duplicated traversal.
+- The README's "swap an implementation by environment" example didn't actually work — it injected the concrete `UserService` class while the module's `providers` could list `MockUserService` instead, which needle-di can't resolve for that token (`No provider(s) found for UserService`). Fixed to use an explicit `implementing` token, which is what actually lets one provider stand in for another.
 
 [0.1.0-alpha.1]: https://github.com/thomas3577/honest/releases/tag/v0.1.0-alpha.1

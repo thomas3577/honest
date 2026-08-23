@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import type { Context } from 'hono';
 
 import { MIDDLEWARE_METADATA, MODULE_METADATA } from '../const.ts';
-import type { ClassConstructor, ControllerClass, CreateRouterOption } from '../types.ts';
+import type { ClassConstructor, ControllerClass, CreateRouterOption, OnModuleDestroy, OnModuleInit } from '../types.ts';
 import { createInjector, type NeedleInjector } from './injector.util.ts';
 import { getMetadata } from './metadata.util.ts';
 
@@ -38,6 +38,81 @@ export function setRequestScope(c: Context, scope: NeedleInjector): void {
 /** Reads the per-request child injector set by `setRequestScope()`, if any. */
 export function getRequestScope(c: Context): NeedleInjector | undefined {
   return c.get(REQUEST_SCOPE_KEY as never) as NeedleInjector | undefined;
+}
+
+interface ModuleLifecycle {
+  instances: object[];
+}
+
+/**
+ * Tracks the controller/provider instances built by one `assignModule()`
+ * call, keyed by the `Hono` instance it returned — the same
+ * WeakMap-keyed-by-the-object-itself approach as `setRequestScope()`/`getRequestScope()`
+ * above, chosen for the same reason: `assignModule()`'s own return type
+ * stays a plain `Hono`, so existing usage (`app.route('/', assignModule(AppModule))`)
+ * is unaffected by consumers who never call `initModule()`/`destroyModule()`.
+ */
+const MODULE_LIFECYCLE = new WeakMap<Hono, ModuleLifecycle>();
+
+const hasOnModuleInit = (instance: object): instance is OnModuleInit => typeof (instance as Partial<OnModuleInit>).onModuleInit === 'function';
+const hasOnModuleDestroy = (instance: object): instance is OnModuleDestroy => typeof (instance as Partial<OnModuleDestroy>).onModuleDestroy === 'function';
+
+const getModuleLifecycle = (app: Hono): ModuleLifecycle => {
+  const lifecycle = MODULE_LIFECYCLE.get(app);
+
+  if (!lifecycle) {
+    throw new Error('initModule()/destroyModule() must be called with the exact Hono instance returned by assignModule().');
+  }
+
+  return lifecycle;
+};
+
+/**
+ * Runs `onModuleInit()` on every controller/provider instance in the module
+ * tree `assignModule()` built for `app`, in the order those instances were
+ * resolved (controllers, then providers that implement a lifecycle hook —
+ * see `assignModule()`). Stops and propagates on the first error. Await
+ * this before serving traffic:
+ *
+ * ```ts
+ * const app = new Hono();
+ * const honestApp = assignModule(AppModule);
+ * app.route('/', honestApp);
+ * await initModule(honestApp);
+ * Deno.serve(app.fetch);
+ * ```
+ */
+export async function initModule(app: Hono): Promise<void> {
+  const { instances } = getModuleLifecycle(app);
+
+  for (const instance of instances) {
+    if (hasOnModuleInit(instance)) {
+      await instance.onModuleInit();
+    }
+  }
+}
+
+/**
+ * Runs `onModuleDestroy()` on every controller/provider instance in the
+ * module tree `assignModule()` built for `app`, in the reverse of their
+ * resolution order. Stops and propagates on the first error. Not wired to
+ * any signal automatically — call it from your own shutdown handling:
+ *
+ * ```ts
+ * Deno.addSignalListener('SIGINT', async () => {
+ *   await destroyModule(honestApp);
+ *   Deno.exit(0);
+ * });
+ * ```
+ */
+export async function destroyModule(app: Hono): Promise<void> {
+  const { instances } = getModuleLifecycle(app);
+
+  for (const instance of [...instances].reverse()) {
+    if (hasOnModuleDestroy(instance)) {
+      await instance.onModuleDestroy();
+    }
+  }
 }
 
 export const isUndefined = (obj: unknown): obj is undefined => typeof obj === 'undefined';
@@ -110,8 +185,10 @@ const getProviders = (module: ClassConstructor, providers: ClassConstructor[] = 
  * @returns {Hono} the assembled Hono app for the module tree, ready to be mounted via `app.route(path, assignModule(Module))`
  */
 export const assignModule = (module: ClassConstructor): Hono => {
-  const injector = createInjector(getProviders(module));
+  const providers = getProviders(module);
+  const injector = createInjector(providers);
   const router = new Hono();
+  const instances: object[] = [];
 
   // Registered before any controller routes are mounted below, since Hono
   // executes middleware/routes in registration order — a request-scope
@@ -124,6 +201,7 @@ export const assignModule = (module: ClassConstructor): Hono => {
   walkModuleTree(module, undefined, new Set<ClassConstructor>(), (Controller, prefixFull) => {
     const controller: ControllerClass = injector.resolve(Controller as ClassConstructor<ControllerClass>);
     controller.init(prefixFull);
+    instances.push(controller);
 
     const { path, route } = controller;
 
@@ -133,6 +211,20 @@ export const assignModule = (module: ClassConstructor): Hono => {
 
     router.route(path && path.length > 0 ? path : '/', route);
   });
+
+  // Providers stay lazily-constructed by default (only built when actually
+  // injected somewhere) — eagerly resolving every provider here would
+  // change that for everyone. Only providers that implement a lifecycle
+  // hook are eager-resolved, since that's the only way to guarantee the
+  // hook actually runs; checked on the prototype, so this never
+  // instantiates a provider that doesn't ask for it.
+  providers.forEach((provider) => {
+    if (typeof provider.prototype?.onModuleInit === 'function' || typeof provider.prototype?.onModuleDestroy === 'function') {
+      instances.push(injector.resolve(provider));
+    }
+  });
+
+  MODULE_LIFECYCLE.set(router, { instances });
 
   return router;
 };

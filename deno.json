@@ -2,7 +2,8 @@
   "name": "@dx/honest",
   "version": "0.1.0-alpha.1",
   "exports": {
-    ".": "./mod.ts"
+    ".": "./mod.ts",
+    "./testing": "./src/testing.ts"
   },
   "tasks": {
     "demo": "deno run -A ./demo/main.ts",
