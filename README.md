@@ -24,9 +24,12 @@ Honest is the same idea as [oakest](https://github.com/thomas3577/oakest) — a 
   - [Custom Route Argument Resolvers](#custom-route-argument-resolvers)
 - [Advanced Features](#advanced-features)
   - [Validation](#validation)
+  - [Config](#config)
   - [Request Scope](#request-scope)
+  - [Lifecycle Hooks](#lifecycle-hooks)
   - [Error Handling](#error-handling)
   - [OpenAPI Documentation](#openapi-documentation)
+  - [Testing](#testing)
   - [Production Hardening](#production-hardening)
 - [Differences from oakest](#differences-from-oakest)
 
@@ -41,6 +44,9 @@ Honest is the same idea as [oakest](https://github.com/thomas3577/oakest) — a 
 - **Built-in Error Handling**: A ready-made `errorHandler()` turns thrown errors into clean, consistent responses.
 - **Request Scope**: Opt in to a fresh, per-request instance for values that shouldn't be long-lived singletons.
 - **OpenAPI Documentation**: `@ApiTags`/`@ApiOperation`/`@ApiResponse` decorators plus `buildOpenApiDocument()` generate a real OpenAPI 3.1 document — pair it with [Scalar](https://github.com/scalar/scalar) for an interactive API reference, no Swagger/Nest dependency required.
+- **Lifecycle Hooks**: Implement `OnModuleInit`/`OnModuleDestroy` on a controller or provider to run setup/teardown around the rest of your app.
+- **Config**: `Config(schema)` validates a config source (env vars by default) against the same Standard Schema interface as request validation, exposing a typed, validated `.value`.
+- **Testing Helper**: `createTestApp()` (via `@dx/honest/testing`) skips the module-class boilerplate for tests, while still exercising the real DI/routing pipeline.
 
 ## Quick Start
 
@@ -196,12 +202,16 @@ Notes on resolver arguments:
 Providers are responsible for main business logic as services, repositories, factories, helpers, and so on.
 The main idea of a provider is that it can be injected as a dependency. Depending on the environment, different implementations of a service can be provided.
 
+Swapping an implementation (e.g. by environment) means both classes have to `implement` the same explicit token — a provider self-binds to its own class as the token (see [Dependency injection notes](#providers) below), so `inject(UserService)` only ever resolves `UserService` itself, never a different class listed in its place:
+
 ```typescript
 // ./sample.service.ts
 import { Injectable } from '@dx/honest';
 import db from './db-service.ts';
 
-@Injectable()
+export const USER_SERVICE = Symbol('UserService');
+
+@Injectable({ implementing: USER_SERVICE })
 export class UserService {
   async getAllUsers() {
     const { data: users } = await db.users.getAll();
@@ -209,7 +219,7 @@ export class UserService {
   }
 }
 
-@Injectable()
+@Injectable({ implementing: USER_SERVICE })
 export class MockUserService {
   getAllUsers() {
     return {
@@ -228,11 +238,12 @@ export class MockUserService {
 
 // ./sample.controller.ts
 import { Controller, Get, inject } from '@dx/honest';
-import { UserService } from './sample.service.ts';
+import { USER_SERVICE } from './sample.service.ts';
+import type { UserService } from './sample.service.ts';
 
 @Controller('users')
 export class UsersController {
-  constructor(private readonly userService = inject(UserService)) {}
+  constructor(private readonly userService = inject<UserService>(USER_SERVICE)) {}
 
   @Get()
   getAllUsers() {
@@ -366,6 +377,31 @@ export class UsersController {
 }
 ```
 
+### Config
+
+`Config(schema, source?)` validates a config source — by default `Deno.env.toObject()` — against a Standard Schema, the same interface [Validation](#validation) uses. Extend it, don't decorate with it — TypeScript can't propagate a decorator's return type to the decorated class's own type, so `.value` would need a cast at every call site; a normal `extends` is fully typed with none:
+
+```typescript
+import { Config, Controller, Get, inject } from '@dx/honest';
+import { z } from 'zod';
+
+const AppConfigSchema = z.object({ PORT: z.coerce.number(), DATABASE_URL: z.string().url() });
+
+export class AppConfig extends Config(AppConfigSchema) {}
+
+@Controller('health')
+export class HealthController {
+  constructor(private readonly config = inject(AppConfig)) {}
+
+  @Get()
+  get() {
+    return { port: this.config.value.PORT };
+  }
+}
+```
+
+Add `AppConfig` to a module's `providers` and it's ready wherever you `inject()` it. Validation runs synchronously in the constructor — the moment `AppConfig` is first injected (typically while `assignModule()` builds the module tree) — so a bad config fails the same way any other constructor error would: loudly, at startup, before serving traffic. It throws `ValidationError` (same shape as the request validators), but since this happens outside any request, it does **not** go through `errorHandler()`. `Config()` only supports schemas that validate synchronously (env vars never need async); a schema that returns a `Promise` throws a clear error immediately instead of silently misbehaving.
+
 ### Request Scope
 
 Controllers and providers are built once per `assignModule()` call, not per request — constructor `inject(...)` always resolves against those long-lived singletons. For values that genuinely need to be fresh per request (e.g. a unit-of-work or a per-request cache), use the `scoped()` resolver instead of constructor injection:
@@ -390,6 +426,50 @@ export class OrdersController {
 ```
 
 `scoped()` is backed by a real needle-di child container, created once per request by `assignModule()`'s own middleware — repeated `scoped()` calls within the same request return the same instance, and a fresh one is used for the next request. It only works on controllers mounted via `assignModule()`; calling it on a controller test-mounted by hand throws a clear error. This is an opt-in mechanism scoped to the resolver argument list — it doesn't change how constructor `inject(...)` works anywhere else.
+
+### Lifecycle Hooks
+
+A controller or provider can implement `OnModuleInit`/`OnModuleDestroy` to run setup/teardown logic — e.g. opening or closing a database connection pool once, instead of on every request:
+
+```typescript
+import type { OnModuleDestroy, OnModuleInit } from '@dx/honest';
+import { Injectable } from '@dx/honest';
+
+@Injectable()
+export class DbConnection implements OnModuleInit, OnModuleDestroy {
+  async onModuleInit() {
+    await this.connect();
+  }
+
+  async onModuleDestroy() {
+    await this.disconnect();
+  }
+  // ...
+}
+```
+
+`assignModule()` stays synchronous (its existing `(module) => Hono` signature is unchanged), so hooks are run by two separate functions you call explicitly:
+
+```typescript
+import { assignModule, destroyModule, initModule } from '@dx/honest';
+import { AppModule } from './app.module.ts';
+
+const app = new Hono();
+const honestApp = assignModule(AppModule);
+app.route('/', honestApp);
+
+await initModule(honestApp); // await before serving traffic
+Deno.serve(app.fetch);
+
+Deno.addSignalListener('SIGINT', async () => {
+  await destroyModule(honestApp); // not wired automatically — call it from your own shutdown handling
+  Deno.exit(0);
+});
+```
+
+`initModule()` runs `onModuleInit()` on every controller (always eagerly built) and every provider that implements `OnModuleInit`/`OnModuleDestroy` — a provider that implements neither stays exactly as lazily-constructed as it is today, so this changes nothing for code that doesn't use the hooks. Lifecycle-implementing providers run **before** controllers, so a provider like the `DbConnection` above has already finished its own `onModuleInit()` by the time a controller that injects it runs its; `destroyModule()` runs in the reverse order (controllers before providers). Both stop and propagate on the first error, rather than collecting multiple failures.
+
+This only orders providers before controllers, not a full dependency graph between lifecycle-implementing providers themselves — if one lifecycle provider injects another, list the dependency first in `providers` (honest doesn't (yet) introspect the DI graph to order these automatically).
 
 ### Error Handling
 
@@ -476,6 +556,27 @@ app.get('/reference', Scalar({ url: '/openapi.json' }));
 ```
 
 That's a plain `npm:` specifier, not an entry in honest's own `imports` — Scalar is entirely optional and only pulled in if (and where) you actually import it. Add a bare `"@scalar/hono-api-reference": "npm:@scalar/hono-api-reference@..."` to your own `deno.json` if you'd rather use the short specifier.
+
+### Testing
+
+`createTestApp(options)`, imported from `@dx/honest/testing` (a separate export path, so it never ships as part of the main entry point), is sugar over `@Module(options)` + `assignModule()` — it skips declaring a named module class per test while still exercising the real DI/routing/request-scope pipeline:
+
+```typescript
+import { createTestApp } from '@dx/honest/testing';
+import { assertEquals } from '@std/assert';
+
+import { UsersController } from './users.controller.ts';
+import { MockUserService } from './mock-user.service.ts';
+
+Deno.test('GET /users returns the mocked users', async () => {
+  const app = createTestApp({ controllers: [UsersController], providers: [MockUserService] });
+  const response = await app.request('/users');
+
+  assertEquals(response.status, 200);
+});
+```
+
+A test double works as a provider the same way a real one does — nothing test-specific is required of it beyond being a normal class matching whatever token your controller/provider injects (see [Providers](#providers) for `implementing` tokens if you need to substitute an implementation without changing what's injected).
 
 ### Production Hardening
 

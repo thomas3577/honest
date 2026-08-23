@@ -1,5 +1,5 @@
 export * from './decorators/mod.ts';
-export { assignModule, registerMiddlewareMethodDecorator } from './utils/router.util.ts';
+export { assignModule, destroyModule, initModule, registerMiddlewareMethodDecorator } from './utils/router.util.ts';
 export { errorHandler } from './utils/error-handler.util.ts';
 export type { ErrorHandler } from './utils/error-handler.util.ts';
 export { buildOpenApiDocument } from './utils/openapi.util.ts';
@@ -7,3 +7,4 @@ export type { BuildOpenApiDocumentOptions } from './utils/openapi.util.ts';
 export { HttpError, ValidationError } from './errors.ts';
 export type { StandardSchema } from './standard-schema.ts';
 export type { JsonSchemaObject, OpenApiDocument, OpenApiOperationObject, OpenApiParameterObject } from './openapi-types.ts';
+export type { OnModuleDestroy, OnModuleInit } from './types.ts';
