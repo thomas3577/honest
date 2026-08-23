@@ -1,5 +1,5 @@
 export * from './decorators/mod.ts';
-export { assignModule, destroyModule, initModule, registerMiddlewareMethodDecorator } from './utils/router.util.ts';
+export { assignModule, destroyModule, healthCheck, initModule, isModuleReady, registerMiddlewareMethodDecorator } from './utils/router.util.ts';
 export { errorHandler } from './utils/error-handler.util.ts';
 export type { ErrorHandler } from './utils/error-handler.util.ts';
 export { buildOpenApiDocument } from './utils/openapi.util.ts';

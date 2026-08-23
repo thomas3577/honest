@@ -42,6 +42,7 @@ export function getRequestScope(c: Context): NeedleInjector | undefined {
 
 interface ModuleLifecycle {
   instances: object[];
+  ready: boolean;
 }
 
 /**
@@ -61,7 +62,7 @@ const getModuleLifecycle = (app: Hono): ModuleLifecycle => {
   const lifecycle = MODULE_LIFECYCLE.get(app);
 
   if (!lifecycle) {
-    throw new Error('initModule()/destroyModule() must be called with the exact Hono instance returned by assignModule().');
+    throw new Error('initModule()/destroyModule()/isModuleReady()/healthCheck() must be called with the exact Hono instance returned by assignModule().');
   }
 
   return lifecycle;
@@ -85,13 +86,15 @@ const getModuleLifecycle = (app: Hono): ModuleLifecycle => {
  * ```
  */
 export async function initModule(app: Hono): Promise<void> {
-  const { instances } = getModuleLifecycle(app);
+  const lifecycle = getModuleLifecycle(app);
 
-  for (const instance of instances) {
+  for (const instance of lifecycle.instances) {
     if (hasOnModuleInit(instance)) {
       await instance.onModuleInit();
     }
   }
+
+  lifecycle.ready = true;
 }
 
 /**
@@ -108,13 +111,47 @@ export async function initModule(app: Hono): Promise<void> {
  * ```
  */
 export async function destroyModule(app: Hono): Promise<void> {
-  const { instances } = getModuleLifecycle(app);
+  const lifecycle = getModuleLifecycle(app);
 
-  for (const instance of [...instances].reverse()) {
+  // Flipped before running any hook, not after — once shutdown has started,
+  // isModuleReady()/healthCheck() should stop advertising the app as
+  // healthy immediately, not only once every teardown hook has finished.
+  lifecycle.ready = false;
+
+  for (const instance of [...lifecycle.instances].reverse()) {
     if (hasOnModuleDestroy(instance)) {
       await instance.onModuleDestroy();
     }
   }
+}
+
+/** Reports whether `initModule(app)` has completed (and `destroyModule(app)` has not since started) — see `healthCheck()` for a ready-made route handler. */
+export function isModuleReady(app: Hono): boolean {
+  return getModuleLifecycle(app).ready;
+}
+
+/**
+ * A ready-made health/readiness route handler: `200` once `initModule(app)`
+ * has completed, `503` before that or once `destroyModule(app)` has
+ * started — the shape orchestrators (Kubernetes, load balancers) expect
+ * from a health/readiness probe.
+ *
+ * ```ts
+ * const honestApp = assignModule(AppModule);
+ * app.route('/', honestApp);
+ * app.get('/health', healthCheck(honestApp));
+ * await initModule(honestApp);
+ * ```
+ *
+ * Need a different response shape (uptime, version, dependency checks)?
+ * Call `isModuleReady(app)` directly inside your own handler instead.
+ */
+export function healthCheck(app: Hono): (c: Context) => Response {
+  return (c: Context) => {
+    const ready = isModuleReady(app);
+
+    return c.json({ status: ready ? 'ok' : 'unavailable' }, ready ? 200 : 503);
+  };
 }
 
 export const isUndefined = (obj: unknown): obj is undefined => typeof obj === 'undefined';
@@ -229,7 +266,7 @@ export const assignModule = (module: ClassConstructor): Hono => {
     router.route(path && path.length > 0 ? path : '/', route);
   });
 
-  MODULE_LIFECYCLE.set(router, { instances });
+  MODULE_LIFECYCLE.set(router, { instances, ready: false });
 
   return router;
 };

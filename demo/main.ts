@@ -4,7 +4,7 @@ import { Hono } from 'hono';
 // the README for why an inline npm: specifier here is enough.
 // deno-lint-ignore no-import-prefix
 import { Scalar } from 'npm:@scalar/hono-api-reference@0.11.16';
-import { assignModule, buildOpenApiDocument, destroyModule, errorHandler, initModule } from '../mod.ts';
+import { assignModule, buildOpenApiDocument, destroyModule, errorHandler, healthCheck, initModule } from '../mod.ts';
 
 import { AppModule } from './app.module.ts';
 
@@ -19,6 +19,7 @@ const openApiDocument = buildOpenApiDocument(AppModule, {
 
 app.get('/openapi.json', (c) => c.json(openApiDocument));
 app.get('/reference', Scalar({ url: '/openapi.json' }));
+app.get('/health', healthCheck(honestApp));
 
 await initModule(honestApp);
 

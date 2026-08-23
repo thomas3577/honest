@@ -7,7 +7,7 @@ import { inject, Injectable } from '../decorators/injectable.ts';
 import { Module } from '../decorators/module.decorator.ts';
 import { scoped } from '../decorators/route-params.decorator.ts';
 import type { ClassConstructor, OnModuleDestroy, OnModuleInit } from '../types.ts';
-import { assignModule, destroyModule, initModule } from './router.util.ts';
+import { assignModule, destroyModule, healthCheck, initModule, isModuleReady } from './router.util.ts';
 
 const handleModuleRequest = async (module: ClassConstructor, path: string) => {
   const app = assignModule(module);
@@ -300,9 +300,84 @@ Deno.test('initModule() propagates an error thrown by a hook', async () => {
   await assertRejects(() => initModule(app), Error, 'boom-init');
 });
 
-Deno.test('initModule()/destroyModule() throw a clear error when given a Hono instance not returned by assignModule()', async () => {
+Deno.test('initModule()/destroyModule()/isModuleReady()/healthCheck() throw a clear error when given a Hono instance not returned by assignModule()', async () => {
   const app = new Hono();
+  const message = 'initModule()/destroyModule()/isModuleReady()/healthCheck() must be called with the exact Hono instance returned by assignModule().';
 
-  await assertRejects(() => initModule(app), Error, 'initModule()/destroyModule() must be called with the exact Hono instance returned by assignModule().');
-  await assertRejects(() => destroyModule(app), Error, 'initModule()/destroyModule() must be called with the exact Hono instance returned by assignModule().');
+  await assertRejects(() => initModule(app), Error, message);
+  await assertRejects(() => destroyModule(app), Error, message);
+  assertThrows(() => isModuleReady(app), Error, message);
+  // getModuleLifecycle() throws before the handler ever touches its Context argument.
+  assertThrows(() => healthCheck(app)(undefined as never), Error, message);
+});
+
+@Controller('ready-check')
+class ReadyCheckController {
+  @Get('ping')
+  ping() {
+    return 'pong';
+  }
+}
+
+@Module({ controllers: [ReadyCheckController] })
+class ReadyCheckModule {}
+
+Deno.test('healthCheck() responds 503 before initModule(), 200 after, and 503 again once destroyModule() starts', async () => {
+  const honestApp = assignModule(ReadyCheckModule);
+  const testApp = new Hono();
+  testApp.get('/health', healthCheck(honestApp));
+
+  const beforeResponse = await testApp.request('/health');
+  assertEquals(beforeResponse.status, 503);
+  assertEquals(await beforeResponse.json(), { status: 'unavailable' });
+
+  await initModule(honestApp);
+
+  const afterInitResponse = await testApp.request('/health');
+  assertEquals(afterInitResponse.status, 200);
+  assertEquals(await afterInitResponse.json(), { status: 'ok' });
+
+  await destroyModule(honestApp);
+
+  const afterDestroyResponse = await testApp.request('/health');
+  assertEquals(afterDestroyResponse.status, 503);
+});
+
+Deno.test('isModuleReady() mirrors initModule()/destroyModule() directly', async () => {
+  const app = assignModule(ReadyCheckModule);
+
+  assertEquals(isModuleReady(app), false);
+
+  await initModule(app);
+  assertEquals(isModuleReady(app), true);
+
+  await destroyModule(app);
+  assertEquals(isModuleReady(app), false);
+});
+
+@Injectable()
+class ThrowingReadyProvider implements OnModuleInit {
+  onModuleInit(): void {
+    throw new Error('boom-ready');
+  }
+}
+
+@Controller('throwing-ready')
+class ThrowingReadyController {
+  constructor(private readonly provider = inject(ThrowingReadyProvider)) {}
+
+  @Get('ping')
+  ping() {
+    return 'pong';
+  }
+}
+
+@Module({ controllers: [ThrowingReadyController], providers: [ThrowingReadyProvider] })
+class ThrowingReadyModule {}
+
+Deno.test('isModuleReady() stays false when initModule() throws', async () => {
+  const app = assignModule(ThrowingReadyModule);
+
+  await assertRejects(() => initModule(app));
+  assertEquals(isModuleReady(app), false);
 });
