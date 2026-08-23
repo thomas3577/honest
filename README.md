@@ -9,6 +9,8 @@ Honest is a decorator-driven application toolkit for Deno's [Hono](https://jsr.i
 
 Honest is the same idea as [oakest](https://github.com/thomas3577/oakest) — a decorator-driven, NestJS-like toolkit — but built on Hono instead of [Oak](https://jsr.io/@oak/oak). See [Differences from oakest](#differences-from-oakest) at the end if you know oakest already.
 
+**Compatibility:** requires Hono `^4.13.3`. Honest's own `deno.json` declares this as a version range, not an exact pin, so Deno can resolve it to the same Hono install your own project already uses wherever possible — keep your project on a single resolved Hono version. Mixing two different Hono versions in one project can produce confusing `Context is not assignable to Context`-style TypeScript errors, since Hono's classes use private fields that make two separately-resolved copies of the same version nominally incompatible.
+
 ## Contents
 
 - [Highlights](#highlights)
@@ -24,6 +26,7 @@ Honest is the same idea as [oakest](https://github.com/thomas3577/oakest) — a 
   - [Validation](#validation)
   - [Request Scope](#request-scope)
   - [Error Handling](#error-handling)
+  - [OpenAPI Documentation](#openapi-documentation)
   - [Production Hardening](#production-hardening)
 - [Differences from oakest](#differences-from-oakest)
 
@@ -37,6 +40,7 @@ Honest is the same idea as [oakest](https://github.com/thomas3577/oakest) — a 
 - **Schema Validation**: Validate the body, query, params, or headers against any [Standard Schema](https://standardschema.dev)-compatible library (Zod, Valibot, ArkType) with no added dependency.
 - **Built-in Error Handling**: A ready-made `errorHandler()` turns thrown errors into clean, consistent responses.
 - **Request Scope**: Opt in to a fresh, per-request instance for values that shouldn't be long-lived singletons.
+- **OpenAPI Documentation**: `@ApiTags`/`@ApiOperation`/`@ApiResponse` decorators plus `buildOpenApiDocument()` generate a real OpenAPI 3.1 document — pair it with [Scalar](https://github.com/scalar/scalar) for an interactive API reference, no Swagger/Nest dependency required.
 
 ## Quick Start
 
@@ -417,6 +421,61 @@ findOne(id: string) {
 ```
 
 `HttpError`'s status is validated when constructed: it must be an integer between 100 and 599, and can't be a status that isn't allowed to carry a body (101, 204, 205, 304) — since `HttpError` always renders one.
+
+### OpenAPI Documentation
+
+Like `@nestjs/swagger`, but without a Swagger/Nest dependency: `@ApiTags`, `@ApiOperation`, and `@ApiResponse` attach descriptive OpenAPI metadata to a controller, and `buildOpenApiDocument()` turns the whole module tree into a real OpenAPI 3.1 document — read purely from the same decorator metadata the router already uses, without instantiating any controller or provider.
+
+```typescript
+import { ApiOperation, ApiResponse, ApiTags, Controller, Get, param } from '@dx/honest';
+
+@ApiTags('users')
+@Controller('users')
+export class UsersController {
+  @ApiOperation({ summary: 'Get a user by id' })
+  @ApiResponse({ status: 200, description: 'The user' })
+  @ApiResponse({ status: 404, description: 'Not found' })
+  @Get(':id', [param<string>('id')])
+  findOne(id: string) {
+    return this.service.find(id);
+  }
+}
+```
+
+```typescript
+// ./main.ts
+import { buildOpenApiDocument } from '@dx/honest';
+import { AppModule } from './app.module.ts';
+
+const document = buildOpenApiDocument(AppModule, {
+  info: { title: 'My API', version: '1.0.0' },
+});
+
+app.get('/openapi.json', (c) => c.json(document));
+```
+
+Request/response shapes backed by `validatedBody`/`validatedQuery`/`validatedParam`/`validatedHeaders` (see [Validation](#validation)) are only included if you pass a `schemaToJsonSchema` converter — honest has no built-in Standard Schema → JSON Schema conversion, since that would tie it to one schema library. Use the schema library's own converter, e.g. Zod's built-in `z.toJSONSchema`:
+
+```typescript
+import { z } from 'zod';
+
+const document = buildOpenApiDocument(AppModule, {
+  info: { title: 'My API', version: '1.0.0' },
+  schemaToJsonSchema: (schema) => z.toJSONSchema(schema as z.ZodType),
+});
+```
+
+Without a converter, everything else still works — tags, summaries, descriptions, responses, path/query/header parameters declared via plain `param()`/`query()`/`headers()`, and route exclusion via `@ApiExcludeEndpoint()`. Routes registered with `@All()` have no single OpenAPI method equivalent and are skipped.
+
+Serve the document with [Scalar](https://github.com/scalar/scalar) for an interactive UI — like [Production Hardening](#production-hardening) below, this is plain Hono middleware, no honest-specific wiring:
+
+```typescript
+import { Scalar } from 'npm:@scalar/hono-api-reference@0.11.16';
+
+app.get('/reference', Scalar({ url: '/openapi.json' }));
+```
+
+That's a plain `npm:` specifier, not an entry in honest's own `imports` — Scalar is entirely optional and only pulled in if (and where) you actually import it. Add a bare `"@scalar/hono-api-reference": "npm:@scalar/hono-api-reference@..."` to your own `deno.json` if you'd rather use the short specifier.
 
 ### Production Hardening
 

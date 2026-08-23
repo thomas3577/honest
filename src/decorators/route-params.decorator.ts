@@ -4,7 +4,7 @@ import { RouteParamTypes } from '../enums.ts';
 import { ValidationError } from '../errors.ts';
 import type { InferOutput, StandardSchema } from '../standard-schema.ts';
 import { getRequestScope, isNil, isString } from '../utils/router.util.ts';
-import type { ClassConstructor, ParamData, TypedRouteArgResolver } from '../types.ts';
+import type { ClassConstructor, ParamData, TypedRouteArgResolver, ValidatedResolverData } from '../types.ts';
 
 type Next = () => Promise<unknown>;
 
@@ -141,7 +141,7 @@ export function validatedBody<TSchema extends StandardSchema>(schema: TSchema): 
     }
 
     return validate(schema, json);
-  });
+  }, { kind: 'body', schema } satisfies ValidatedResolverData<TSchema>);
 }
 
 /**
@@ -164,15 +164,15 @@ function queryToRecord(searchParams: URLSearchParams): Record<string, string | s
 
 /** Validates the query string against a Standard Schema-compatible schema. Repeated keys become string arrays (see `queryToRecord()`). Throws `ValidationError` on failure. */
 export function validatedQuery<TSchema extends StandardSchema>(schema: TSchema): TypedRouteArgResolver<InferOutput<TSchema>> {
-  return custom((c) => validate(schema, queryToRecord(new URL(c.req.raw.url).searchParams)));
+  return custom((c) => validate(schema, queryToRecord(new URL(c.req.raw.url).searchParams)), { kind: 'query', schema } satisfies ValidatedResolverData<TSchema>);
 }
 
 /** Validates the route params against a Standard Schema-compatible schema. Throws `ValidationError` on failure. */
 export function validatedParam<TSchema extends StandardSchema>(schema: TSchema): TypedRouteArgResolver<InferOutput<TSchema>> {
-  return custom((c) => validate(schema, c.req.param()));
+  return custom((c) => validate(schema, c.req.param()), { kind: 'param', schema } satisfies ValidatedResolverData<TSchema>);
 }
 
 /** Validates the request headers against a Standard Schema-compatible schema. Throws `ValidationError` on failure. */
 export function validatedHeaders<TSchema extends StandardSchema>(schema: TSchema): TypedRouteArgResolver<InferOutput<TSchema>> {
-  return custom((c) => validate(schema, c.req.header()));
+  return custom((c) => validate(schema, c.req.header()), { kind: 'headers', schema } satisfies ValidatedResolverData<TSchema>);
 }

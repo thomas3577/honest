@@ -7,6 +7,9 @@ import { body, param, query } from './route-params.decorator.ts';
 import { Controller } from './controller.decorator.ts';
 import { All, Delete, Get, Patch, Post, Put } from './http-methods.decorator.ts';
 
+/** `declarationId` is an opaque, run-order-dependent identity (see `getMethodDeclarationId()`) — strip it before comparing the rest of the metadata shape. */
+const stripDeclarationId = (list: ActionMetadata[]) => list.map(({ declarationId: _declarationId, ...rest }) => rest);
+
 @Controller()
 class HttpMethodController {
   @Get('list')
@@ -32,7 +35,7 @@ Deno.test('HTTP method decorators register method metadata for each decorated ha
   const metadata = getMetadata<ActionMetadata[]>(METHOD_METADATA, HttpMethodController.prototype);
 
   assertExists(metadata);
-  assertEquals(metadata, [
+  assertEquals(stripDeclarationId(metadata), [
     { path: 'list', method: 'get', functionName: 'list' },
     { path: 'create', method: 'post', functionName: 'create' },
     { path: 'replace', method: 'put', functionName: 'replace' },
@@ -52,7 +55,7 @@ Deno.test('HTTP method decorators store optional args resolvers', () => {
   const metadata = getMetadata<ActionMetadata[]>(METHOD_METADATA, ResolverMethodController.prototype);
 
   assertExists(metadata);
-  assertEquals(metadata, [
+  assertEquals(stripDeclarationId(metadata), [
     {
       path: ':id',
       method: 'post',
@@ -92,13 +95,26 @@ Deno.test('HTTP method decorators do not leak route metadata between sibling sub
   // Each subclass clones and appends onto its inherited metadata (matching the
   // Controller() middleware-inheritance semantics), but must never see its
   // sibling's own entries.
-  assertEquals(baseMetadata, [{ path: 'base-path', method: 'get', functionName: 'action' }]);
-  assertEquals(childAMetadata, [
+  assertExists(baseMetadata);
+  assertExists(childAMetadata);
+  assertExists(childBMetadata);
+  assertEquals(stripDeclarationId(baseMetadata), [{ path: 'base-path', method: 'get', functionName: 'action' }]);
+  assertEquals(stripDeclarationId(childAMetadata), [
     { path: 'base-path', method: 'get', functionName: 'action' },
     { path: 'child-a-path', method: 'get', functionName: 'action' },
   ]);
-  assertEquals(childBMetadata, [
+  assertEquals(stripDeclarationId(childBMetadata), [
     { path: 'base-path', method: 'get', functionName: 'action' },
     { path: 'child-b-path', method: 'get', functionName: 'action' },
   ]);
+
+  // The inherited (base) entry is the exact same declaration everywhere it
+  // appears, but each subclass's own override is a distinct declaration —
+  // this identity is what buildOpenApiDocument() relies on to tell an
+  // inherited route apart from an overriding one that shares a functionName.
+  assertEquals(childAMetadata[0].declarationId, baseMetadata[0].declarationId);
+  assertEquals(childBMetadata[0].declarationId, baseMetadata[0].declarationId);
+  assertEquals(childAMetadata[1].declarationId === baseMetadata[0].declarationId, false);
+  assertEquals(childBMetadata[1].declarationId === baseMetadata[0].declarationId, false);
+  assertEquals(childAMetadata[1].declarationId === childBMetadata[1].declarationId, false);
 });

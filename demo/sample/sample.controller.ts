@@ -1,4 +1,4 @@
-import { body, Controller, Get, inject, ip, param, Post, query, scoped, validatedBody } from '../../mod.ts';
+import { ApiOperation, ApiResponse, ApiTags, body, Controller, Get, inject, ip, param, Post, query, scoped, validatedBody } from '../../mod.ts';
 import type { StandardSchema } from '../../mod.ts';
 
 import { SharedService } from '../shared/shared.service.ts';
@@ -23,6 +23,7 @@ const CreateItemSchema: StandardSchema<unknown, CreateItem> = {
   },
 };
 
+@ApiTags('sample')
 @Controller()
 export class SampleController {
   constructor(
@@ -30,6 +31,8 @@ export class SampleController {
     private readonly _sharedService = inject(SharedService),
   ) {}
 
+  @ApiOperation({ summary: 'Get the sample payload' })
+  @ApiResponse({ status: 200, description: 'The sample payload' })
   @Get()
   get() {
     return this._sampleService.get();
@@ -40,6 +43,9 @@ export class SampleController {
     return body;
   }
 
+  @ApiOperation({ summary: 'Create an item', description: 'Validates the request body against a hand-rolled Standard Schema.' })
+  @ApiResponse({ status: 200, description: 'The created item' })
+  @ApiResponse({ status: 400, description: 'Validation failed' })
   @Post('validated', [validatedBody(CreateItemSchema)])
   postValidated(item: CreateItem) {
     return { status: 'ok', item };

@@ -5,8 +5,8 @@ import type { Context } from 'hono';
 import * as log from '@std/log';
 
 import { RouteParamTypes } from '../enums.ts';
-import { METHOD_METADATA, MIDDLEWARE_METADATA } from '../const.ts';
-import type { ActionMetadata, ControllerClass, HTTPMethods, RouteArgResolver } from '../types.ts';
+import { API_OPERATION_METADATA, API_RESPONSE_METADATA, CONTROLLER_METADATA, METHOD_METADATA, MIDDLEWARE_METADATA } from '../const.ts';
+import type { ActionMetadata, ApiOperationMetadata, ApiResponseMetadata, ControllerClass, ControllerMetadata, HTTPMethods, RouteArgResolver } from '../types.ts';
 import { defineMetadata, getMetadata, getOwnMetadata } from '../utils/metadata.util.ts';
 
 type Next = () => Promise<unknown>;
@@ -29,9 +29,23 @@ export function Controller<T extends ControllerConstructor>(options?: string): (
     const metadata = context.metadata as DecoratorMetadataBag;
     const actions = [...((metadata[METHOD_METADATA] as ActionMetadata[] | undefined) ?? [])];
     const middlewareRegistrations = (metadata[MIDDLEWARE_METADATA] as MiddlewareRegistration[] | undefined) ?? [];
+    const apiOperations = [...((metadata[API_OPERATION_METADATA] as ApiOperationMetadata[] | undefined) ?? [])];
+    const apiResponses = [...((metadata[API_RESPONSE_METADATA] as ApiResponseMetadata[] | undefined) ?? [])];
+
+    if (path) {
+      defineMetadata(CONTROLLER_METADATA, { path } satisfies ControllerMetadata, fn.prototype);
+    }
 
     if (actions.length > 0) {
       defineMetadata(METHOD_METADATA, actions, fn.prototype);
+    }
+
+    if (apiOperations.length > 0) {
+      defineMetadata(API_OPERATION_METADATA, apiOperations, fn.prototype);
+    }
+
+    if (apiResponses.length > 0) {
+      defineMetadata(API_RESPONSE_METADATA, apiResponses, fn.prototype);
     }
 
     for (const registration of middlewareRegistrations) {
