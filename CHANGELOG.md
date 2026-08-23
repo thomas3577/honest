@@ -19,6 +19,7 @@ Initial release: a decorator-driven application toolkit for [Hono](https://jsr.i
 - `HttpError` and `ValidationError` error types, and a ready-made `errorHandler()` for `app.onError()`.
 - Proxy-aware `ip({ trustProxy: true })` option for reading `X-Forwarded-For` behind a trusted reverse proxy.
 - `scoped()` resolver for request-scoped dependency injection, backed by a needle-di child container created once per request.
+- OpenAPI documentation: `@ApiTags`, `@ApiOperation`, `@ApiResponse`, `@ApiExcludeEndpoint` decorators and `buildOpenApiDocument()`, which reads the module tree's existing decorator metadata (no controller/provider instantiation) into an OpenAPI 3.1 document. Request/response shapes backed by `validatedBody`/`validatedQuery`/`validatedParam`/`validatedHeaders` are included when a `schemaToJsonSchema` converter is supplied (e.g. Zod's `z.toJSONSchema`). Demo wires this up with [Scalar](https://github.com/scalar/scalar) at `/reference`.
 - Demo app (`demo/`) and full test suite covering the above.
 
 ### Fixed

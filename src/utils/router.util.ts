@@ -45,7 +45,7 @@ export const isUndefined = (obj: unknown): obj is undefined => typeof obj === 'u
 export const isString = (fn: unknown): fn is string => typeof fn === 'string';
 export const isNil = (obj: unknown): obj is null | undefined => isUndefined(obj) || obj === null;
 
-const mergeRoutePrefix = (prefix?: string, routePrefix?: string): string | undefined => {
+export const mergeRoutePrefix = (prefix?: string, routePrefix?: string): string | undefined => {
   const normalizedPrefix = prefix?.replace(/\/+$/, '');
   const normalizedRoutePrefix = routePrefix?.replace(/^\/+/, '');
 
@@ -56,7 +56,7 @@ const mergeRoutePrefix = (prefix?: string, routePrefix?: string): string | undef
   return normalizedPrefix || normalizedRoutePrefix;
 };
 
-const getModuleOptions = (module: ClassConstructor): CreateRouterOption => {
+export const getModuleOptions = (module: ClassConstructor): CreateRouterOption => {
   const moduleOption = getMetadata(MODULE_METADATA, module.prototype) as CreateRouterOption | undefined;
 
   if (!moduleOption) {

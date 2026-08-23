@@ -3,3 +3,7 @@ export const MODULE_METADATA = Symbol('module');
 export const MIDDLEWARE_METADATA = Symbol('middleware');
 export const INJECTOR_INTERFACES_METADATA = Symbol('injectorInterfaces');
 export const INJECTABLE_OPTIONS_METADATA = Symbol('injectableOptions');
+export const CONTROLLER_METADATA = Symbol('controller');
+export const API_TAGS_METADATA = Symbol('apiTags');
+export const API_OPERATION_METADATA = Symbol('apiOperation');
+export const API_RESPONSE_METADATA = Symbol('apiResponse');
