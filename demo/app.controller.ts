@@ -1,6 +1,7 @@
-import { Controller, Get, headers, inject } from '../mod.ts';
+import { Controller, Get, headers, inject, UseGuard } from '../mod.ts';
 
 import { AppConfig } from './app.config.ts';
+import { AuthGuard } from './auth.guard.ts';
 import { SharedService } from './shared/shared.service.ts';
 
 @Controller()
@@ -23,5 +24,11 @@ export class AppController {
   @Get('config')
   getConfig() {
     return this._config.value;
+  }
+
+  @UseGuard(AuthGuard)
+  @Get('admin')
+  admin() {
+    return { status: 'ok', secret: true };
   }
 }

@@ -26,6 +26,7 @@ Honest is the same idea as [oakest](https://github.com/thomas3577/oakest) — a 
   - [Validation](#validation)
   - [Config](#config)
   - [Request Scope](#request-scope)
+  - [Guards](#guards)
   - [Lifecycle Hooks](#lifecycle-hooks)
   - [Error Handling](#error-handling)
   - [OpenAPI Documentation](#openapi-documentation)
@@ -43,6 +44,7 @@ Honest is the same idea as [oakest](https://github.com/thomas3577/oakest) — a 
 - **Schema Validation**: Validate the body, query, params, or headers against any [Standard Schema](https://standardschema.dev)-compatible library (Zod, Valibot, ArkType) with no added dependency.
 - **Built-in Error Handling**: A ready-made `errorHandler()` turns thrown errors into clean, consistent responses.
 - **Request Scope**: Opt in to a fresh, per-request instance for values that shouldn't be long-lived singletons.
+- **Guards**: `@UseGuard(GuardClass)` gates a route or a whole controller behind a DI-resolved `canActivate()` check.
 - **OpenAPI Documentation**: `@ApiTags`/`@ApiOperation`/`@ApiResponse` decorators plus `buildOpenApiDocument()` generate a real OpenAPI 3.1 document — pair it with [Scalar](https://github.com/scalar/scalar) for an interactive API reference, no Swagger/Nest dependency required.
 - **Lifecycle Hooks**: Implement `OnModuleInit`/`OnModuleDestroy` on a controller or provider to run setup/teardown around the rest of your app, plus a ready-made `healthCheck()` route handler for readiness probes.
 - **Config**: `Config(schema)` validates a config source (env vars by default) against the same Standard Schema interface as request validation, exposing a typed, validated `.value`.
@@ -426,6 +428,39 @@ export class OrdersController {
 ```
 
 `scoped()` is backed by a real needle-di child container, created once per request by `assignModule()`'s own middleware — repeated `scoped()` calls within the same request return the same instance, and a fresh one is used for the next request. It only works on controllers mounted via `assignModule()`; calling it on a controller test-mounted by hand throws a clear error. This is an opt-in mechanism scoped to the resolver argument list — it doesn't change how constructor `inject(...)` works anywhere else.
+
+### Guards
+
+`@UseGuard(GuardClass)` gates a route — or, applied to the controller class itself, every route on it — behind `GuardClass.canActivate(c)`. It's a small, purpose-built specialization of [Custom Middleware Decorators](#custom-middleware-decorators): a `Guard` is resolved through the same request scope `scoped()` uses, so its constructor can `inject()` any of the module's singleton providers.
+
+```typescript
+import { Controller, Get, inject, UseGuard } from '@dx/honest';
+import type { Guard } from '@dx/honest';
+import type { Context } from 'hono';
+import { AuthService } from './auth.service.ts';
+
+class AuthGuard implements Guard {
+  constructor(private readonly auth = inject(AuthService)) {}
+
+  canActivate(c: Context) {
+    return this.auth.isValid(c.req.header('authorization'));
+  }
+}
+
+@UseGuard(AuthGuard) // every route on this controller
+@Controller('admin')
+export class AdminController {
+  @UseGuard(SomeOtherGuard) // stacks with the class-level guard above
+  @Get('audit-log')
+  auditLog() {
+    // ...
+  }
+}
+```
+
+Returning (or resolving to) `false` from `canActivate()` denies the request with a plain `HttpError(403, 'Forbidden')` — handled the same way as any other `HttpError`, see [Error Handling](#error-handling). Throw your own `HttpError` from `canActivate()` instead for a different status or message. Like `scoped()`, `UseGuard()` requires the controller to be mounted via `assignModule()` and throws a clear error otherwise.
+
+Need a plain function check instead of a DI-resolved class, or something that isn't really an authorization concern? Reach for [Custom Middleware Decorators](#custom-middleware-decorators) (`registerMiddlewareMethodDecorator()`) directly, or its class-level counterpart `registerMiddlewareClassDecorator()` — `UseGuard()` is built on exactly these two.
 
 ### Lifecycle Hooks
 

@@ -6,6 +6,12 @@ import type { StandardSchema } from './standard-schema.ts';
 
 export type HTTPMethods = 'get' | 'put' | 'patch' | 'post' | 'delete' | 'all';
 
+/** The `next()` function Hono passes to a middleware handler. */
+export type Next = () => Promise<unknown>;
+
+/** A Hono-shaped middleware handler — the common type behind `registerMiddlewareMethodDecorator()`/`registerMiddlewareClassDecorator()` and the decorators built on them (`@UseGuard()`). */
+export type MiddlewareHandler = (c: Context, next: Next) => Response | void | Promise<Response | void>;
+
 export interface ActionMetadata {
   path: string;
   method: HTTPMethods;
