@@ -6,14 +6,12 @@ import * as log from '@std/log';
 
 import { RouteParamTypes } from '../enums.ts';
 import { API_OPERATION_METADATA, API_RESPONSE_METADATA, CONTROLLER_METADATA, METHOD_METADATA, MIDDLEWARE_METADATA } from '../const.ts';
-import type { ActionMetadata, ApiOperationMetadata, ApiResponseMetadata, ControllerClass, ControllerMetadata, HTTPMethods, RouteArgResolver } from '../types.ts';
+import type { ActionMetadata, ApiOperationMetadata, ApiResponseMetadata, ControllerClass, ControllerMetadata, HTTPMethods, MiddlewareHandler, Next, RouteArgResolver } from '../types.ts';
 import { defineMetadata, getMetadata, getOwnMetadata } from '../utils/metadata.util.ts';
 
-type Next = () => Promise<unknown>;
 type ControllerConstructor = new (...instance: never[]) => object;
 type RouteMethodRegistrar = (path: string, ...handlers: unknown[]) => Hono;
 type ControllerMethodMap = Record<string, (...args: unknown[]) => unknown>;
-type MiddlewareHandler = (c: Context, next: Next) => Response | void | Promise<Response | void>;
 type DecoratorMetadataBag = Record<PropertyKey, unknown>;
 type MiddlewareRegistration = { functionName: string; handler: MiddlewareHandler };
 

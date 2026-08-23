@@ -2,12 +2,10 @@ import { Hono } from 'hono';
 import type { Context } from 'hono';
 
 import { MIDDLEWARE_METADATA, MODULE_METADATA } from '../const.ts';
-import type { ClassConstructor, ControllerClass, CreateRouterOption, OnModuleDestroy, OnModuleInit } from '../types.ts';
+import type { ClassConstructor, ControllerClass, CreateRouterOption, MiddlewareHandler, OnModuleDestroy, OnModuleInit } from '../types.ts';
 import { createInjector, type NeedleInjector } from './injector.util.ts';
 import { defineMetadata, getMetadata } from './metadata.util.ts';
 
-type Next = () => Promise<unknown>;
-type MiddlewareHandler = (c: Context, next: Next) => Response | void | Promise<Response | void>;
 type DecoratorMetadataBag = Record<PropertyKey, unknown>;
 type MiddlewareRegistration = { functionName: string; handler: MiddlewareHandler };
 

@@ -2,10 +2,9 @@ import '../utils/reflect-shim.ts';
 
 import type { Context } from 'hono';
 import { HttpError } from '../errors.ts';
-import type { ClassConstructor } from '../types.ts';
+import type { ClassConstructor, Next } from '../types.ts';
 import { getRequestScope, registerMiddlewareClassDecorator, registerMiddlewareMethodDecorator } from '../utils/router.util.ts';
 
-type Next = () => Promise<unknown>;
 type MethodDecorator = <This, Args extends unknown[], Return>(
   value: (this: This, ...args: Args) => Return,
   context: ClassMethodDecoratorContext<This, (this: This, ...args: Args) => Return>,
@@ -43,7 +42,9 @@ export interface Guard {
  * export class AdminController {
  *   @UseGuard(SomeOtherGuard) // stacks with the class-level guard above
  *   @Get('audit-log')
- *   auditLog() { /* ... *\/ }
+ *   auditLog() {
+ *     // ...
+ *   }
  * }
  * ```
  */
