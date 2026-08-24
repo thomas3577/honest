@@ -38,6 +38,23 @@ export function getRequestScope(c: Context): NeedleInjector | undefined {
   return c.get(REQUEST_SCOPE_KEY as never) as NeedleInjector | undefined;
 }
 
+/**
+ * Like `getRequestScope()`, but throws a clear error instead of returning
+ * `undefined` — shared by every decorator that must resolve through the
+ * request scope (`scoped()`, `UseGuard()`) so they raise the same message.
+ * `callerName` is the decorator's own name, e.g. `'UseGuard()'`, spliced into
+ * the error message.
+ */
+export function requireRequestScope(c: Context, callerName: string): NeedleInjector {
+  const requestScope = getRequestScope(c);
+
+  if (!requestScope) {
+    throw new Error(`${callerName} requires the controller to be mounted via assignModule() (no request scope found on this Context).`);
+  }
+
+  return requestScope;
+}
+
 interface ModuleLifecycle {
   instances: object[];
   ready: boolean;
@@ -273,6 +290,10 @@ export const assignModule = (module: ClassConstructor): Hono => {
  * Registers a decorator that can be added to a controller's
  * method. The handler will be called at runtime when the
  * endpoint method is invoked with the Context and Next parameters.
+ *
+ * For a decorator that instead applies to every route on a controller
+ * class, see `registerMiddlewareClassDecorator()` — the two use different
+ * storage strategies for reasons explained on that one.
  *
  * @param {ClassMethodDecoratorContext} context - standard method decorator context
  * @param {MiddlewareHandler} handler - decorator handler

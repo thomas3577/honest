@@ -1,4 +1,4 @@
-import { assertEquals, assertExists } from '@std/assert';
+import { assertEquals, assertExists, assertThrows } from '@std/assert';
 
 import { METHOD_METADATA } from '../const.ts';
 import type { ActionMetadata } from '../types.ts';
@@ -70,6 +70,21 @@ Deno.test('HTTP method decorators store optional args resolvers', () => {
 });
 
 @Controller()
+class ArgsOnlyOverloadController {
+  @Get([param<string>('id')])
+  find(_id: string) {}
+}
+
+Deno.test('HTTP method decorators support the args-only overload (no explicit path)', () => {
+  const metadata = getMetadata<ActionMetadata[]>(METHOD_METADATA, ArgsOnlyOverloadController.prototype);
+
+  assertExists(metadata);
+  assertEquals(stripDeclarationId(metadata), [
+    { path: '', method: 'get', functionName: 'find', args: [{ paramType: 6, data: 'id' }] },
+  ]);
+});
+
+@Controller()
 class SiblingBaseController {
   @Get('base-path')
   action() {}
@@ -117,4 +132,61 @@ Deno.test('HTTP method decorators do not leak route metadata between sibling sub
   assertEquals(childAMetadata[1].declarationId === baseMetadata[0].declarationId, false);
   assertEquals(childBMetadata[1].declarationId === baseMetadata[0].declarationId, false);
   assertEquals(childAMetadata[1].declarationId === childBMetadata[1].declarationId, false);
+});
+
+Deno.test('Get() throws when applied to a static method', () => {
+  assertThrows(
+    () => {
+      class _Test {
+        @Get('path')
+        static handler() {}
+      }
+    },
+    Error,
+    '@GET() can only be used on public instance methods.',
+  );
+});
+
+Deno.test('Get() throws when applied to a private method', () => {
+  assertThrows(
+    () => {
+      class _Test {
+        @Get('path')
+        #handler() {}
+      }
+    },
+    Error,
+    '@GET() can only be used on public instance methods.',
+  );
+});
+
+Deno.test('Get() throws when applied to a getter', () => {
+  assertThrows(
+    () => {
+      // deno-lint-ignore no-explicit-any -- deliberately misapplying a method decorator to a getter to exercise the runtime guard.
+      const getOnGetter: any = Get('path');
+
+      class _Test {
+        @getOnGetter
+        get handler() {
+          return 1;
+        }
+      }
+    },
+    Error,
+    '@GET() can only be used on public instance methods.',
+  );
+});
+
+Deno.test('Get() throws when applied to a symbol-named method', () => {
+  assertThrows(
+    () => {
+      class _Test {
+        @Get('path')
+        [Symbol.iterator]() {}
+      }
+    },
+    Error,
+    '@GET() only supports string-named methods.',
+  );
 });

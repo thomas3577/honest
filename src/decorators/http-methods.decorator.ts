@@ -1,14 +1,10 @@
 import '../utils/reflect-shim.ts';
 
 import { METHOD_METADATA } from '../const.ts';
-import type { ActionMetadata, HTTPMethods, RouteArgResolver } from '../types.ts';
+import type { ActionMetadata, HTTPMethods, MethodDecoratorFn, RouteArgResolver } from '../types.ts';
 import { getMethodDeclarationId } from '../utils/method-identity.util.ts';
 
 type DecoratorMetadataBag = Record<PropertyKey, unknown>;
-type RouteMethodDecorator = <This, Args extends unknown[], Return>(
-  value: (this: This, ...args: Args) => Return,
-  context: ClassMethodDecoratorContext<This, (this: This, ...args: Args) => Return>,
-) => void;
 
 /**
  * HTTP Method GET
@@ -56,8 +52,8 @@ export const All: HttpMethod = mappingMethod('all');
  * HTTP Method
  */
 export type HttpMethod = {
-  (path?: string, args?: RouteArgResolver[]): RouteMethodDecorator;
-  (args: RouteArgResolver[]): RouteMethodDecorator;
+  (path?: string, args?: RouteArgResolver[]): MethodDecoratorFn;
+  (args: RouteArgResolver[]): MethodDecoratorFn;
 };
 
 function mappingMethod(method: HTTPMethods): HttpMethod {

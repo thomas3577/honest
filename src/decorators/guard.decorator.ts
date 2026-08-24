@@ -2,13 +2,9 @@ import '../utils/reflect-shim.ts';
 
 import type { Context } from 'hono';
 import { HttpError } from '../errors.ts';
-import type { ClassConstructor, Next } from '../types.ts';
-import { getRequestScope, registerMiddlewareClassDecorator, registerMiddlewareMethodDecorator } from '../utils/router.util.ts';
+import type { ClassConstructor, MethodDecoratorFn, Next } from '../types.ts';
+import { registerMiddlewareClassDecorator, registerMiddlewareMethodDecorator, requireRequestScope } from '../utils/router.util.ts';
 
-type MethodDecorator = <This, Args extends unknown[], Return>(
-  value: (this: This, ...args: Args) => Return,
-  context: ClassMethodDecoratorContext<This, (this: This, ...args: Args) => Return>,
-) => void;
 type ClassDecorator<T extends ClassConstructor> = (target: T, context: ClassDecoratorContext<T>) => void;
 
 /**
@@ -47,16 +43,18 @@ export interface Guard {
  *   }
  * }
  * ```
+ *
+ * Guards are additive across inheritance, never subtractive: a subclass
+ * that extends a guarded controller/method inherits its guard(s) on top of
+ * any it applies itself — there is no way to remove or replace an inherited
+ * guard, only add more. This matches how a class-level guard and a
+ * method-level guard already stack on the same route (either one denying
+ * is enough to deny); overriding a method to drop its base guard requires
+ * giving the override a different name instead.
  */
-export function UseGuard<T extends ClassConstructor>(GuardClass: ClassConstructor<Guard>): ClassDecorator<T> & MethodDecorator {
+export function UseGuard<T extends ClassConstructor>(GuardClass: ClassConstructor<Guard>): ClassDecorator<T> & MethodDecoratorFn {
   const handler = async (c: Context, next: Next) => {
-    const requestScope = getRequestScope(c);
-
-    if (!requestScope) {
-      throw new Error('UseGuard() requires the controller to be mounted via assignModule() (no request scope found on this Context).');
-    }
-
-    const guard = requestScope.resolve(GuardClass);
+    const guard = requireRequestScope(c, 'UseGuard()').resolve(GuardClass);
     const allowed = await guard.canActivate(c);
 
     if (!allowed) {
@@ -74,5 +72,5 @@ export function UseGuard<T extends ClassConstructor>(GuardClass: ClassConstructo
     }
 
     registerMiddlewareMethodDecorator(context as ClassMethodDecoratorContext, handler);
-  }) as ClassDecorator<T> & MethodDecorator;
+  }) as ClassDecorator<T> & MethodDecoratorFn;
 }

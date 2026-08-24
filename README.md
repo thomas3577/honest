@@ -460,6 +460,8 @@ export class AdminController {
 
 Returning (or resolving to) `false` from `canActivate()` denies the request with a plain `HttpError(403, 'Forbidden')` — handled the same way as any other `HttpError`, see [Error Handling](#error-handling). Throw your own `HttpError` from `canActivate()` instead for a different status or message. Like `scoped()`, `UseGuard()` requires the controller to be mounted via `assignModule()` and throws a clear error otherwise.
 
+Guards are additive across inheritance, never subtractive: a subclass that extends a guarded controller (or overrides a guarded method) inherits its guard(s) on top of any it applies itself — either one denying is enough to deny. There's no way to remove or replace an inherited guard on an override; give the override a different name instead if it genuinely shouldn't be guarded.
+
 Need a plain function check instead of a DI-resolved class, or something that isn't really an authorization concern? Reach for [Custom Middleware Decorators](#custom-middleware-decorators) (`registerMiddlewareMethodDecorator()`) directly, or its class-level counterpart `registerMiddlewareClassDecorator()` — `UseGuard()` is built on exactly these two.
 
 ### Lifecycle Hooks

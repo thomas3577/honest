@@ -1,4 +1,4 @@
-import { assertEquals, assertExists } from '@std/assert';
+import { assertEquals, assertExists, assertThrows } from '@std/assert';
 
 import { API_OPERATION_METADATA, API_RESPONSE_METADATA, API_TAGS_METADATA } from '../const.ts';
 import type { ApiOperationMetadata, ApiResponseMetadata } from '../types.ts';
@@ -126,4 +126,175 @@ Deno.test('ApiOperation() does not leak metadata between sibling subclasses of a
   assertEquals(childBMetadata[0].declarationId, baseMetadata[0].declarationId);
   assertEquals(childAMetadata[1].declarationId === baseMetadata[0].declarationId, false);
   assertEquals(childAMetadata[1].declarationId === childBMetadata[1].declarationId, false);
+});
+
+Deno.test('ApiOperation() throws when applied to a static method', () => {
+  assertThrows(
+    () => {
+      class _Test {
+        @ApiOperation({ summary: 'x' })
+        static handler() {}
+      }
+    },
+    Error,
+    '@ApiOperation() can only be used on public instance methods.',
+  );
+});
+
+Deno.test('ApiOperation() throws when applied to a private method', () => {
+  assertThrows(
+    () => {
+      class _Test {
+        @ApiOperation({ summary: 'x' })
+        #handler() {}
+      }
+    },
+    Error,
+    '@ApiOperation() can only be used on public instance methods.',
+  );
+});
+
+Deno.test('ApiOperation() throws when applied to a getter', () => {
+  assertThrows(
+    () => {
+      // deno-lint-ignore no-explicit-any -- deliberately misapplying a method decorator to a getter to exercise the runtime guard.
+      const apiOperationOnGetter: any = ApiOperation({ summary: 'x' });
+
+      class _Test {
+        @apiOperationOnGetter
+        get handler() {
+          return 1;
+        }
+      }
+    },
+    Error,
+    '@ApiOperation() can only be used on public instance methods.',
+  );
+});
+
+Deno.test('ApiOperation() throws when applied to a symbol-named method', () => {
+  assertThrows(
+    () => {
+      class _Test {
+        @ApiOperation({ summary: 'x' })
+        [Symbol.iterator]() {}
+      }
+    },
+    Error,
+    '@ApiOperation() can only be used on public instance methods.',
+  );
+});
+
+Deno.test('ApiResponse() throws when applied to a static method', () => {
+  assertThrows(
+    () => {
+      class _Test {
+        @ApiResponse({ status: 200 })
+        static handler() {}
+      }
+    },
+    Error,
+    '@ApiResponse() can only be used on public instance methods.',
+  );
+});
+
+Deno.test('ApiResponse() throws when applied to a private method', () => {
+  assertThrows(
+    () => {
+      class _Test {
+        @ApiResponse({ status: 200 })
+        #handler() {}
+      }
+    },
+    Error,
+    '@ApiResponse() can only be used on public instance methods.',
+  );
+});
+
+Deno.test('ApiResponse() throws when applied to a getter', () => {
+  assertThrows(
+    () => {
+      // deno-lint-ignore no-explicit-any -- deliberately misapplying a method decorator to a getter to exercise the runtime guard.
+      const apiResponseOnGetter: any = ApiResponse({ status: 200 });
+
+      class _Test {
+        @apiResponseOnGetter
+        get handler() {
+          return 1;
+        }
+      }
+    },
+    Error,
+    '@ApiResponse() can only be used on public instance methods.',
+  );
+});
+
+Deno.test('ApiResponse() throws when applied to a symbol-named method', () => {
+  assertThrows(
+    () => {
+      class _Test {
+        @ApiResponse({ status: 200 })
+        [Symbol.iterator]() {}
+      }
+    },
+    Error,
+    '@ApiResponse() can only be used on public instance methods.',
+  );
+});
+
+Deno.test('ApiExcludeEndpoint() throws when applied to a static method', () => {
+  assertThrows(
+    () => {
+      class _Test {
+        @ApiExcludeEndpoint()
+        static handler() {}
+      }
+    },
+    Error,
+    '@ApiExcludeEndpoint() can only be used on public instance methods.',
+  );
+});
+
+Deno.test('ApiExcludeEndpoint() throws when applied to a private method', () => {
+  assertThrows(
+    () => {
+      class _Test {
+        @ApiExcludeEndpoint()
+        #handler() {}
+      }
+    },
+    Error,
+    '@ApiExcludeEndpoint() can only be used on public instance methods.',
+  );
+});
+
+Deno.test('ApiExcludeEndpoint() throws when applied to a getter', () => {
+  assertThrows(
+    () => {
+      // deno-lint-ignore no-explicit-any -- deliberately misapplying a method decorator to a getter to exercise the runtime guard.
+      const apiExcludeEndpointOnGetter: any = ApiExcludeEndpoint();
+
+      class _Test {
+        @apiExcludeEndpointOnGetter
+        get handler() {
+          return 1;
+        }
+      }
+    },
+    Error,
+    '@ApiExcludeEndpoint() can only be used on public instance methods.',
+  );
+});
+
+Deno.test('ApiExcludeEndpoint() throws when applied to a symbol-named method', () => {
+  assertThrows(
+    () => {
+      class _Test {
+        @ApiExcludeEndpoint()
+        [Symbol.iterator]() {}
+      }
+    },
+    Error,
+    '@ApiExcludeEndpoint() can only be used on public instance methods.',
+  );
 });

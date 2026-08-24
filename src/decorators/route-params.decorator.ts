@@ -3,10 +3,8 @@ import type { Context } from 'hono';
 import { RouteParamTypes } from '../enums.ts';
 import { ValidationError } from '../errors.ts';
 import type { InferOutput, StandardSchema } from '../standard-schema.ts';
-import { getRequestScope, isNil, isString } from '../utils/router.util.ts';
-import type { ClassConstructor, ParamData, TypedRouteArgResolver, ValidatedResolverData } from '../types.ts';
-
-type Next = () => Promise<unknown>;
+import { isNil, isString, requireRequestScope } from '../utils/router.util.ts';
+import type { ClassConstructor, Next, ParamData, TypedRouteArgResolver, ValidatedResolverData } from '../types.ts';
 
 // Type mapping from RouteParamTypes to their concrete return types
 export type RouteParamReturn<TParam extends RouteParamTypes> = TParam extends RouteParamTypes.REQUEST ? Context['req']
@@ -108,15 +106,7 @@ export const custom: CustomRouteArgResolverFactory = <THandler extends (c: Conte
  * Requires the controller to be mounted via `assignModule()`.
  */
 export function scoped<T extends object>(target: ClassConstructor<T>): TypedRouteArgResolver<T> {
-  return custom((c) => {
-    const requestScope = getRequestScope(c);
-
-    if (!requestScope) {
-      throw new Error('scoped() requires the controller to be mounted via assignModule() (no request scope found on this Context).');
-    }
-
-    return requestScope.resolve(target);
-  });
+  return custom((c) => requireRequestScope(c, 'scoped()').resolve(target));
 }
 
 async function validate<TSchema extends StandardSchema>(schema: TSchema, value: unknown): Promise<InferOutput<TSchema>> {

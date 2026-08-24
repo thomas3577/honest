@@ -12,6 +12,12 @@ export type Next = () => Promise<unknown>;
 /** A Hono-shaped middleware handler — the common type behind `registerMiddlewareMethodDecorator()`/`registerMiddlewareClassDecorator()` and the decorators built on them (`@UseGuard()`). */
 export type MiddlewareHandler = (c: Context, next: Next) => Response | void | Promise<Response | void>;
 
+/** The shape every method decorator built on the standard decorators proposal has — `@Get()`/`@Post()`/etc., `@UseGuard()`, and any future one like them. */
+export type MethodDecoratorFn = <This, Args extends unknown[], Return>(
+  value: (this: This, ...args: Args) => Return,
+  context: ClassMethodDecoratorContext<This, (this: This, ...args: Args) => Return>,
+) => void;
+
 export interface ActionMetadata {
   path: string;
   method: HTTPMethods;
