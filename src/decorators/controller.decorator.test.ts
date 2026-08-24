@@ -6,6 +6,7 @@ import { Get, Post } from './http-methods.decorator.ts';
 import { body, ctx, custom, headers, ip, next, param, query, req, res } from './route-params.decorator.ts';
 import { Controller, sendResult } from './controller.decorator.ts';
 import { registerMiddlewareMethodDecorator } from '../utils/router.util.ts';
+import { mountController } from '../utils/mount-controller.test.ts';
 import type { ControllerClass, ParamData } from '../types.ts';
 
 function RuntimeMiddleware<This extends object, Args extends unknown[], Return>(
@@ -57,19 +58,6 @@ function SiblingRuntimeMiddleware<This extends object, Args extends unknown[], R
     inheritedMiddlewareEvents.push('sibling:after');
   });
 }
-
-const mountController = (controller: { path?: string; route?: Hono; init(routePrefix?: string): void }, routePrefix?: string) => {
-  controller.init(routePrefix);
-
-  assertExists(controller.path);
-  assertExists(controller.route);
-
-  const app = new Hono();
-
-  app.route(controller.path || '/', controller.route);
-
-  return app;
-};
 
 @Controller('users')
 class ParameterController {

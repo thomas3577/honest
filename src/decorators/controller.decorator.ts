@@ -65,10 +65,13 @@ export function Controller<T extends ControllerConstructor>(options?: string): (
 
         const route = new Hono();
 
-        // Class-level middleware (e.g. a controller-wide @UseGuard()) — registered
-        // before any per-method route below, since Hono runs middleware/routes in
-        // registration order. Stored with no propertyKey, a separate namespace
-        // from the per-method MIDDLEWARE_METADATA read via getMetadata(..., meta.functionName) below.
+        // Class-level middleware (e.g. a controller-wide @UseGuard()) — prepended
+        // to every per-method route below instead of a blanket `route.use('*', ...)`:
+        // a wildcard would also run for requests that never match any of this
+        // controller's routes (an unmapped sub-path, an OPTIONS preflight),
+        // turning what should be a 404 into a 403 and leaking the guard's
+        // existence. Stored with no propertyKey, a separate namespace from the
+        // per-method MIDDLEWARE_METADATA read via getMetadata(..., meta.functionName) below.
         //
         // Read from this instance's own prototype, not the closure-captured
         // fn.prototype: a class decorator stacked *above* @Controller() (the
@@ -76,10 +79,10 @@ export function Controller<T extends ControllerConstructor>(options?: string): (
         // receives @Controller()'s already-wrapped class as its target, a
         // subclass of fn — fn.prototype can never see metadata written on a
         // subclass. `this`'s prototype is always the actual, fully-decorated
-        // class, regardless of decorator order.
+        // class, regardless of decorator order. Any future order-flexible
+        // class decorator (written like registerMiddlewareClassDecorator(),
+        // straight to target.prototype) must read the same way, for the same reason.
         const classMiddlewares: MiddlewareHandler[] = getMetadata(MIDDLEWARE_METADATA, Object.getPrototypeOf(this) as object) || [];
-
-        classMiddlewares.forEach((handler) => route.use('*', async (c, next) => await handler(c, next)));
 
         const methodMap: Record<HTTPMethods, RouteMethodRegistrar> = {
           get: route.get.bind(route),
@@ -92,8 +95,9 @@ export function Controller<T extends ControllerConstructor>(options?: string): (
         const list: ActionMetadata[] = getMetadata(METHOD_METADATA, fn.prototype) || [];
 
         list.forEach((meta: ActionMetadata) => {
-          const middlewaresMetadata = getMetadata(MIDDLEWARE_METADATA, fn.prototype, meta.functionName);
-          const middlewares = Array.isArray(middlewaresMetadata) ? middlewaresMetadata : middlewaresMetadata ? [middlewaresMetadata] : [];
+          const methodMiddlewaresMetadata = getMetadata(MIDDLEWARE_METADATA, fn.prototype, meta.functionName);
+          const methodMiddlewares = Array.isArray(methodMiddlewaresMetadata) ? methodMiddlewaresMetadata : methodMiddlewaresMetadata ? [methodMiddlewaresMetadata] : [];
+          const middlewares = [...classMiddlewares, ...methodMiddlewares];
 
           methodMap[meta.method](`/${meta.path}`, ...middlewares, async (c: Context, next: Next) => {
             const handler = (this as unknown as ControllerMethodMap)[meta.functionName];

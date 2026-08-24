@@ -1,10 +1,10 @@
 import { assertEquals, assertExists } from '@std/assert';
-import { Hono } from 'hono';
 import type { Context } from 'hono';
 
 import { HttpError } from '../errors.ts';
 import { errorHandler } from '../utils/error-handler.util.ts';
 import { assignModule } from '../utils/router.util.ts';
+import { mountController } from '../utils/mount-controller.test.ts';
 import type { ControllerClass } from '../types.ts';
 import { Controller } from './controller.decorator.ts';
 import type { Guard } from './guard.decorator.ts';
@@ -12,17 +12,6 @@ import { UseGuard } from './guard.decorator.ts';
 import { Get } from './http-methods.decorator.ts';
 import { inject, Injectable } from './injectable.ts';
 import { Module } from './module.decorator.ts';
-
-const mountController = (controller: ControllerClass, routePrefix?: string) => {
-  controller.init(routePrefix);
-
-  const app = new Hono();
-
-  app.route(controller.path || '/', controller.route!);
-  app.onError(errorHandler());
-
-  return app;
-};
 
 class AllowGuard implements Guard {
   canActivate(): boolean {
@@ -92,6 +81,21 @@ Deno.test('@UseGuard() on a controller class applies to every route on it', asyn
 
   assertEquals(oneResponse.status, 403);
   assertEquals(twoResponse.status, 403);
+});
+
+Deno.test('a controller-wide @UseGuard() does not run for requests that never match one of its routes', async () => {
+  const app = assignModule(ClassGuardModule);
+  app.onError(errorHandler());
+
+  // No route is registered for this sub-path — must 404, not 403, and must
+  // not leak that a guard exists here at all.
+  const unmappedResponse = await app.request('/class-guard/does-not-exist');
+  assertEquals(unmappedResponse.status, 404);
+
+  // No OPTIONS handler is registered for this route — an unauthenticated
+  // CORS preflight must not be denied by the guard.
+  const preflightResponse = await app.request('/class-guard/one', { method: 'OPTIONS' });
+  assertEquals(preflightResponse.status, 404);
 });
 
 @UseGuard(AllowGuard)
