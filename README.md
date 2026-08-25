@@ -1,6 +1,7 @@
 # Honest
 
 [![JSR Version](https://jsr.io/badges/@dx/honest)](https://jsr.io/@dx/honest)
+[![JSR Score](https://jsr.io/badges/@dx/honest/score)](https://jsr.io/@dx/honest/score)
 [![ci](https://github.com/thomas3577/honest/actions/workflows/deno.yml/badge.svg)](https://github.com/thomas3577/honest/actions/workflows/deno.yml)
 
 > ⚠️ **EXPERIMENTAL**: This library is in early development and highly experimental. APIs may change without notice. Not recommended for production use.
