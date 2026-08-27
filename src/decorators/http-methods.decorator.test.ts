@@ -178,6 +178,39 @@ Deno.test('Get() throws when applied to a getter', () => {
   );
 });
 
+Deno.test('Get() throws on an Oak-style wildcard path instead of silently accepting it as a literal name', () => {
+  assertThrows(
+    () => {
+      class _Test {
+        @Get(':site*')
+        handler() {}
+      }
+    },
+    Error,
+    'Use Hono\'s syntax instead: ":site{.*}"',
+  );
+});
+
+Deno.test('Get() throws on an Oak-style one-or-more wildcard path', () => {
+  assertThrows(
+    () => {
+      class _Test {
+        @Get('files/:path+')
+        handler() {}
+      }
+    },
+    Error,
+    'Use Hono\'s syntax instead: ":path{.+}"',
+  );
+});
+
+Deno.test("Get() accepts Hono's own wildcard syntax", () => {
+  class _Test {
+    @Get(':site{.*}')
+    handler() {}
+  }
+});
+
 Deno.test('Get() throws when applied to a symbol-named method', () => {
   assertThrows(
     () => {

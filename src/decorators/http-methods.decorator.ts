@@ -7,6 +7,17 @@ import { getMethodDeclarationId } from '../utils/method-identity.util.ts';
 type DecoratorMetadataBag = Record<PropertyKey, unknown>;
 
 /**
+ * Matches Oak's wildcard param modifiers (`:name*` zero-or-more, `:name+`
+ * one-or-more). Hono has no such modifier — it treats a trailing `*`/`+` as
+ * part of the literal param name instead of rejecting it, so a route
+ * migrated as-is from oakest silently changes meaning (e.g. `/` stops
+ * matching) instead of failing loudly. Deliberately excludes `:name{...}`
+ * (Hono's actual wildcard syntax, e.g. `:name{.*}`) by requiring the `*`/`+`
+ * to follow the identifier directly.
+ */
+const OAK_WILDCARD_PATTERN = /:[A-Za-z_$][\w$]*([*+])/;
+
+/**
  * HTTP Method GET
  *
  * @param {string} path - Path for the route
@@ -72,6 +83,14 @@ function mappingMethod(method: HTTPMethods): HttpMethod {
 
     const path = Array.isArray(pathOrArgs) ? '' : pathOrArgs;
     const routeArgs = Array.isArray(pathOrArgs) ? pathOrArgs : args;
+    const wildcardMatch = path.match(OAK_WILDCARD_PATTERN);
+
+    if (wildcardMatch) {
+      const modifier = wildcardMatch[1] === '*' ? '{.*}' : '{.+}';
+      throw new Error(
+        `Route path "${path}" uses Oak's wildcard param syntax ("${wildcardMatch[0]}"), which Hono treats as a literal parameter name instead of a wildcard. Use Hono's syntax instead: "${wildcardMatch[0].slice(0, -1)}${modifier}".`,
+      );
+    }
     const meta: ActionMetadata = {
       path,
       method,
