@@ -6,6 +6,20 @@ import type { StandardSchema } from './standard-schema.ts';
 
 export type HTTPMethods = 'get' | 'put' | 'patch' | 'post' | 'delete' | 'all';
 
+/**
+ * The type of the `Context` a route handler receives — whether injected
+ * explicitly via `ctx()`/`res()` or implicitly as a trailing parameter (see
+ * `resolveHandlerInputs()`). An alias for Hono's own `Context`, exported so
+ * a handler signature can name it as `@dx/honest`'s own type instead of
+ * reaching into `hono` directly. Note: this does not make a wrong type
+ * (e.g. a stale `oakest` `Context`) a compile error on its own — the args
+ * array passed to `@Get()`/`@Post()`/etc. isn't type-checked against the
+ * handler's parameter types, only its count is checked, and only at
+ * runtime (see `resolveHandlerInputs()`). Naming the parameter's type
+ * `HonestContext` at least makes a mismatch easy to spot on review.
+ */
+export type HonestContext = Context;
+
 /** The `next()` function Hono passes to a middleware handler. */
 export type Next = () => Promise<unknown>;
 

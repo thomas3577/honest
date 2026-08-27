@@ -7,4 +7,4 @@ export type { BuildOpenApiDocumentOptions } from './utils/openapi.util.ts';
 export { HttpError, ValidationError } from './errors.ts';
 export type { StandardSchema } from './standard-schema.ts';
 export type { JsonSchemaObject, OpenApiDocument, OpenApiOperationObject, OpenApiParameterObject } from './openapi-types.ts';
-export type { OnModuleDestroy, OnModuleInit } from './types.ts';
+export type { HonestContext, OnModuleDestroy, OnModuleInit } from './types.ts';

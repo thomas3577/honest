@@ -1,6 +1,6 @@
 {
   "name": "@dx/honest",
-  "version": "0.1.0-alpha.1",
+  "version": "0.1.0-alpha.2",
   "license": "MIT",
   "exports": {
     ".": "./mod.ts",
@@ -12,7 +12,7 @@
   },
   "imports": {
     "@needle-di/core": "jsr:@needle-di/core@1.2.0",
-    "hono": "jsr:@hono/hono@^4.13.3",
+    "hono": "jsr:@hono/hono@^4.13.5",
     "@std/log": "jsr:@std/log@0.224.14",
     "@std/assert": "jsr:@std/assert@1.0.19"
   },
