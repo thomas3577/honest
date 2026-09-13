@@ -1,8 +1,8 @@
 {
   "version": "5",
   "specifiers": {
-    "jsr:@hono/hono@^4.13.5": "4.13.5",
-    "jsr:@needle-di/core@1.2.0": "1.2.0",
+    "jsr:@hono/hono@^4.13.7": "4.13.7",
+    "jsr:@needle-di/core@1.2.1": "1.2.1",
     "jsr:@std/assert@*": "1.0.19",
     "jsr:@std/assert@1.0.19": "1.0.19",
     "jsr:@std/fmt@^1.0.5": "1.0.10",
@@ -13,11 +13,11 @@
     "npm:@scalar/hono-api-reference@0.11.16": "0.11.16"
   },
   "jsr": {
-    "@hono/hono@4.13.5": {
-      "integrity": "b5b10f340820d14d69add622452e88722d7e99e05e30cdeafcb90133fc752126"
+    "@hono/hono@4.13.7": {
+      "integrity": "90f83307462b2dd47c9a8028cf5e4827abedc74a53fd291a49130f1579fdcd79"
     },
-    "@needle-di/core@1.2.0": {
-      "integrity": "fe5bf5de7ec8a89843fb56db72024bf00609769f15cacb3b16c85260af485c14"
+    "@needle-di/core@1.2.1": {
+      "integrity": "fa6491594d66754f7793abba982a2ddba23eea9129ccdc7f6f66efcad1f56eb2"
     },
     "@std/assert@1.0.19": {
       "integrity": "eaada96ee120cb980bc47e040f82814d786fe8162ecc53c91d8df60b8755991e",
@@ -102,8 +102,8 @@
   },
   "workspace": {
     "dependencies": [
-      "jsr:@hono/hono@^4.13.5",
-      "jsr:@needle-di/core@1.2.0",
+      "jsr:@hono/hono@^4.13.7",
+      "jsr:@needle-di/core@1.2.1",
       "jsr:@std/assert@1.0.19",
       "jsr:@std/log@0.224.14"
     ]
