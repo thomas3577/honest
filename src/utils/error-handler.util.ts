@@ -4,6 +4,7 @@ import * as log from '@std/log';
 
 import { HttpError, ValidationError } from '../errors.ts';
 
+/** Signature of a Hono `app.onError()` handler. */
 export type ErrorHandler = (err: Error, c: Context) => Response;
 
 /**

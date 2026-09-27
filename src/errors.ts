@@ -14,9 +14,12 @@ const CONTENTLESS_STATUS_CODES = new Set([101, 204, 205, 304]);
  * (see utils/error-handler.util.ts).
  */
 export class HttpError extends Error {
+  /** HTTP status code of the response. */
   readonly status: number;
+  /** Optional payload rendered as `details` in the JSON body. */
   readonly details?: unknown;
 
+  /** Throws `RangeError` for statuses outside 100-599 or ones that cannot carry a body. */
   constructor(status: number, message: string, details?: unknown) {
     if (!Number.isInteger(status) || status < 100 || status > 599) {
       throw new RangeError(`HttpError status must be an integer between 100 and 599, got ${status}.`);
@@ -39,6 +42,7 @@ export class HttpError extends Error {
  * to a 400 response carrying the schema's issues.
  */
 export class ValidationError extends Error {
+  /** Creates the error from the issues reported by the failing schema. */
   constructor(readonly issues: readonly StandardSchemaIssue[]) {
     super('Validation failed');
     this.name = 'ValidationError';

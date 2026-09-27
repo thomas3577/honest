@@ -4,8 +4,11 @@ import { INJECTABLE_OPTIONS_METADATA, INJECTOR_INTERFACES_METADATA } from '../co
 import { inject } from '../utils/injector.util.ts';
 import { defineMetadata } from '../utils/metadata.util.ts';
 
+/** Interface token(s) a provider is registered under, in addition to its class. */
 export type Implementing = string | symbol | string[] | symbol[];
+/** Options carrying the `implementing` token(s) of a provider. */
 export type ImplementingOptions = { implementing?: Implementing };
+/** Options for `@Injectable()`: interface token(s) and singleton scope. */
 export type InjectableOptions = ImplementingOptions & { isSingleton?: boolean };
 
 export { inject };

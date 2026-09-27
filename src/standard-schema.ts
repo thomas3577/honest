@@ -5,6 +5,7 @@
  * runtime dependency to honest.
  */
 export interface StandardSchema<Input = unknown, Output = Input> {
+  /** The Standard Schema properties. */
   readonly '~standard': StandardSchemaProps<Input, Output>;
 }
 
