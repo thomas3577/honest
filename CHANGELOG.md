@@ -4,9 +4,15 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [0.1.0-alpha.1] - 2026-08-22
+## [0.1.0] - 2026-09-27
+
+First non-pre-release. Consolidates `0.1.0-alpha.1` (2026-08-22) through `0.1.0-alpha.3` (2026-09-13); no API changes since `alpha.2`.
 
 Initial release: a decorator-driven application toolkit for [Hono](https://jsr.io/@hono/hono), ported from [oakest](https://github.com/thomas3577/oakest) (the same idea, built on Oak).
+
+### Changed
+
+- Requires Hono `^4.13.9` (was `^4.13.3` in `alpha.1`); `@needle-di/core` updated to `1.2.1`.
 
 ### Added
 
@@ -25,6 +31,9 @@ Initial release: a decorator-driven application toolkit for [Hono](https://jsr.i
 - `createTestApp()`, exported separately via `@dx/honest/testing`, builds an ad-hoc module and assigns it — removes the boilerplate of declaring a named module class per test.
 - `healthCheck()`/`isModuleReady()`: a ready-made health/readiness route handler (and the underlying boolean check) reporting whether `initModule()` has completed and `destroyModule()` hasn't started — the shape orchestrators expect from a readiness probe.
 - Guards: `@UseGuard(GuardClass)` gates a route, or (as a class decorator) every route on a controller, behind `GuardClass.canActivate(c)`. The guard is resolved through the request scope, so it can `inject()` module providers; denial throws a plain `HttpError(403)` unless the guard throws its own. Built on a new `registerMiddlewareClassDecorator()`, the class-level counterpart to the existing `registerMiddlewareMethodDecorator()`.
+- `HonestContext` type export, an alias for Hono's `Context`, so handler and guard signatures can name honest's own type. _(alpha.2)_
+- Route paths using Oak's `:name*`/`:name+` wildcard syntax now throw at decoration time with a hint to Hono's `:name{.*}`/`:name{.+}`, instead of silently being treated as a literal param name. _(alpha.2)_
+- README: Hono submodule import setup (`hono/cors`, `hono/streaming`, `hono/deno`) and an Oak → Hono idiom lookup table. _(alpha.2)_
 - Demo app (`demo/`) and full test suite covering the above.
 
 ### Fixed
@@ -49,4 +58,4 @@ _(found and fixed during the initial development of this version, before any ext
 - `Controller()` read class-level middleware (used by `@UseGuard()` on a controller) from the wrong prototype — a class decorator applied _above_ `@Controller()` (the natural-looking order) receives `@Controller()`'s already-wrapped class as its target, which `@Controller()`'s own closure could never see, so the middleware was silently never applied regardless of decoration order. Fixed to read from the instance's actual, fully-decorated prototype at call time instead of the decoration-time closure.
 - A controller-wide `@UseGuard()` was wired as a `route.use('*', ...)` wildcard, which also ran for requests that never matched any of the controller's own routes — an unmapped sub-path or an unhandled HTTP method (e.g. an OPTIONS preflight) got denied with a 403 instead of falling through to a 404. Fixed by attaching class-level middleware to each registered route instead of the whole sub-router.
 
-[0.1.0-alpha.1]: https://github.com/thomas3577/honest/releases/tag/v0.1.0-alpha.1
+[0.1.0]: https://github.com/thomas3577/honest/releases/tag/v0.1.0
