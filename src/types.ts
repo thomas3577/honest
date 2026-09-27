@@ -112,10 +112,12 @@ export interface ValidatedResolverData<TSchema extends StandardSchema = Standard
 
 /** Implement on a controller or provider to run setup logic once `assignModule()` has built the module tree — see `initModule()`. */
 export interface OnModuleInit {
+  /** Called once after the module tree is built. */
   onModuleInit(): void | Promise<void>;
 }
 
 /** Implement on a controller or provider to run teardown logic — see `destroyModule()`. */
 export interface OnModuleDestroy {
+  /** Called when the module is destroyed. */
   onModuleDestroy(): void | Promise<void>;
 }

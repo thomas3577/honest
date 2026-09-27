@@ -14,6 +14,7 @@ type ClassDecorator<T extends ClassConstructor> = (target: T, context: ClassDeco
  * different status or message.
  */
 export interface Guard {
+  /** Return `false` (or resolve to it) to reject the request with `403`. */
   canActivate(c: Context): boolean | Promise<boolean>;
 }
 

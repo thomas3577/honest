@@ -13,15 +13,23 @@ type MethodDecorator = <This, Args extends unknown[], Return>(
   context: ClassMethodDecoratorContext<This, (this: This, ...args: Args) => Return>,
 ) => void;
 
+/** Options for `@ApiOperation()`. */
 export interface ApiOperationOptions {
+  /** Short summary of the operation. */
   summary?: string;
+  /** Longer description of the operation (CommonMark). */
   description?: string;
+  /** Marks the operation as deprecated. */
   deprecated?: boolean;
 }
 
+/** Options for `@ApiResponse()`. */
 export interface ApiResponseOptions {
+  /** HTTP status code of the response. */
   status: number;
+  /** Description of the response. */
   description?: string;
+  /** Response body shape, as a Standard Schema or plain JSON Schema. */
   schema?: StandardSchema | JsonSchemaObject;
 }
 

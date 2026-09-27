@@ -6,8 +6,11 @@ import type { ActionMetadata, ApiOperationMetadata, ApiResponseMetadata, ClassCo
 import { getMetadata } from './metadata.util.ts';
 import { walkModuleTree } from './router.util.ts';
 
+/** Options for `buildOpenApiDocument()`. */
 export interface BuildOpenApiDocumentOptions {
+  /** API metadata (title, version, ...). */
   info: OpenApiInfo;
+  /** Servers hosting the API. */
   servers?: OpenApiServer[];
   /** Converts a Standard Schema (Zod, Valibot, ArkType, ...) to JSON Schema, e.g. Zod's own `z.toJSONSchema`. Without it, request/response shapes backed by a Standard Schema are omitted from the document (path/query/header parameters, tags, summaries and descriptions are unaffected). */
   schemaToJsonSchema?: (schema: StandardSchema) => JsonSchemaObject;

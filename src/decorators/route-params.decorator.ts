@@ -49,7 +49,9 @@ function createRouteArgResolver<TParam extends RouteParamTypes>(paramType: TPara
   };
 }
 
+/** Injects Hono's request object (`c.req`), or a single property of it when given a key. */
 export const req: RouteArgResolverFactory<Context['req']> = createRouteArgResolver(RouteParamTypes.REQUEST);
+/** Injects the Hono `Context`. */
 export const ctx: RouteArgResolverFactory<Context> = createRouteArgResolver(RouteParamTypes.CONTEXT);
 
 /**
@@ -59,12 +61,18 @@ export const ctx: RouteArgResolverFactory<Context> = createRouteArgResolver(Rout
  * `Context` as `ctx()`; prefer `ctx()` directly in new code.
  */
 export const res: RouteArgResolverFactory<Context> = createRouteArgResolver(RouteParamTypes.RESPONSE);
+/** Injects Hono's `next()` function. */
 export const next: RouteArgResolverFactory<Next> = createRouteArgResolver(RouteParamTypes.NEXT);
+/** Injects a single query parameter by key, or all query parameters as `URLSearchParams`. */
 export const query: RouteArgResolverFactory<string | URLSearchParams> = createRouteArgResolver(RouteParamTypes.QUERY);
+/** Injects a single path parameter by key, or all path parameters as a record. */
 export const param: RouteArgResolverFactory<string | Record<string, string>> = createRouteArgResolver(RouteParamTypes.PARAM);
+/** Injects the parsed request body. */
 export const body: RouteArgResolverFactory<unknown> = createRouteArgResolver(RouteParamTypes.BODY);
+/** Injects a single request header by key, or all headers as a record. */
 export const headers: RouteArgResolverFactory<string | undefined | Record<string, string>> = createRouteArgResolver(RouteParamTypes.HEADERS);
 
+/** Options for `ip()`. */
 export type IpResolverOptions = {
   /**
    * Trust the `X-Forwarded-For` header (first entry) over the raw socket
@@ -88,6 +96,7 @@ export function ip(options?: IpResolverOptions): TypedRouteArgResolver<string> {
   };
 }
 
+/** Injects the value returned by a custom `handler(c, data)`, awaited. */
 export const custom: CustomRouteArgResolverFactory = <THandler extends (c: Context, data?: ParamData) => unknown>(handler: THandler, data?: ParamData): TypedRouteArgResolver<Awaited<ReturnType<THandler>>> => {
   return {
     paramType: RouteParamTypes.CUSTOM,
