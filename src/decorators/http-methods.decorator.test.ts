@@ -47,8 +47,8 @@ Deno.test('HTTP method decorators register method metadata for each decorated ha
 
 @Controller()
 class ResolverMethodController {
-  @Post(':id', [param<string>('id'), body<{ name: string }>(), query<string | null>('dryRun')])
-  create(_id: string, _body: { name: string }, _dryRun: string | null) {}
+  @Post(':id', [param<string>('id'), body<{ name: string }>(), query<string | undefined>('dryRun')])
+  create(_id: string, _body: { name: string }, _dryRun: string | undefined) {}
 }
 
 Deno.test('HTTP method decorators store optional args resolvers', () => {

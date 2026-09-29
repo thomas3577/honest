@@ -4,6 +4,24 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.2] - 2026-09-29
+
+### Changed
+
+- Requires Hono `^4.13.10` (was `^4.13.9`).
+
+### Fixed
+
+- `query(key)` now resolves an absent query parameter to `undefined` instead of `null`, matching `param(key)` and `headers(key)`. The `query()`/`param()` default types now include `undefined`. Code that checks a missing query value with `=== null` must switch to `=== undefined` (or `== null`).
+- `body(key)` no longer throws (500) when the JSON body is `null`; it resolves to `undefined`.
+- `req()` JSDoc no longer claims it supports a key.
+
+## [0.1.1] - 2026-09-27
+
+### Added
+
+- JSDoc for all previously undocumented exported symbols. No API changes.
+
 ## [0.1.0] - 2026-09-27
 
 First non-pre-release. Consolidates `0.1.0-alpha.1` (2026-08-22) through `0.1.0-alpha.3` (2026-09-13); no API changes since `alpha.2`.
