@@ -92,9 +92,9 @@ const middlewareEvents: string[] = [];
 @Controller('tasks')
 class RuntimeController {
   @RuntimeMiddleware
-  @Get(':id', [query<string | null>('filter'), param<string>('id'), custom((routeContext: Context, data?: ParamData) => `${routeContext.req.param('id')}:${String(data)}`, 'extra')])
+  @Get(':id', [query<string | undefined>('filter'), param<string>('id'), custom((routeContext: Context, data?: ParamData) => `${routeContext.req.param('id')}:${String(data)}`, 'extra')])
   index(
-    filter: string | null,
+    filter: string | undefined,
     id: string,
     customValue: string,
   ) {
@@ -157,11 +157,11 @@ class UndefinedResultController {
 
 @Controller('mapped')
 class MappedArgsController {
-  @Post(':id', [param<string>('id'), body<{ name: string }>(), query<string | null>('dryRun')])
+  @Post(':id', [param<string>('id'), body<{ name: string }>(), query<string | undefined>('dryRun')])
   update(
     id: string,
     requestBody: { name: string },
-    dryRun: string | null,
+    dryRun: string | undefined,
     c: Context,
   ) {
     return {
@@ -333,6 +333,26 @@ Deno.test('Controller handlers resolve mapped args and append ctx as the final i
     dryRun: 'yes',
     path: '/mapped/123',
   });
+});
+
+@Controller('missing')
+class MissingArgsController {
+  @Post(':id', [query<string | undefined>('absent'), param<string | undefined>('absent'), headers<string | undefined>('x-absent'), body<string | undefined>('name')])
+  check(queryValue: string | undefined, paramValue: string | undefined, headerValue: string | undefined, bodyValue: string | undefined) {
+    return [queryValue, paramValue, headerValue, bodyValue].map((value) => value === undefined ? 'undefined' : String(value));
+  }
+}
+
+Deno.test('Controller resolves absent query/param/header/body keys as undefined, not null, and tolerates a null JSON body', async () => {
+  const app = mountController(new MissingArgsController() as unknown as ControllerClass);
+  const response = await app.request('http://localhost/missing/1', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: 'null',
+  });
+
+  assertEquals(response.status, 200);
+  assertEquals(await response.json(), ['undefined', 'undefined', 'undefined', 'undefined']);
 });
 
 Deno.test('Controller handlers without explicit route arg mapping receive ctx as the only parameter', async () => {

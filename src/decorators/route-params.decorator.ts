@@ -12,8 +12,8 @@ export type RouteParamReturn<TParam extends RouteParamTypes> = TParam extends Ro
   : TParam extends RouteParamTypes.RESPONSE ? Context
   : TParam extends RouteParamTypes.NEXT ? Next
   : TParam extends RouteParamTypes.BODY ? unknown
-  : TParam extends RouteParamTypes.QUERY ? string | URLSearchParams
-  : TParam extends RouteParamTypes.PARAM ? string | Record<string, string>
+  : TParam extends RouteParamTypes.QUERY ? string | undefined | URLSearchParams
+  : TParam extends RouteParamTypes.PARAM ? string | undefined | Record<string, string>
   : TParam extends RouteParamTypes.HEADERS ? string | undefined | Record<string, string>
   : TParam extends RouteParamTypes.IP ? string
   : unknown;
@@ -49,7 +49,7 @@ function createRouteArgResolver<TParam extends RouteParamTypes>(paramType: TPara
   };
 }
 
-/** Injects Hono's request object (`c.req`), or a single property of it when given a key. */
+/** Injects Hono's request object (`c.req`). */
 export const req: RouteArgResolverFactory<Context['req']> = createRouteArgResolver(RouteParamTypes.REQUEST);
 /** Injects the Hono `Context`. */
 export const ctx: RouteArgResolverFactory<Context> = createRouteArgResolver(RouteParamTypes.CONTEXT);
@@ -63,10 +63,10 @@ export const ctx: RouteArgResolverFactory<Context> = createRouteArgResolver(Rout
 export const res: RouteArgResolverFactory<Context> = createRouteArgResolver(RouteParamTypes.RESPONSE);
 /** Injects Hono's `next()` function. */
 export const next: RouteArgResolverFactory<Next> = createRouteArgResolver(RouteParamTypes.NEXT);
-/** Injects a single query parameter by key, or all query parameters as `URLSearchParams`. */
-export const query: RouteArgResolverFactory<string | URLSearchParams> = createRouteArgResolver(RouteParamTypes.QUERY);
-/** Injects a single path parameter by key, or all path parameters as a record. */
-export const param: RouteArgResolverFactory<string | Record<string, string>> = createRouteArgResolver(RouteParamTypes.PARAM);
+/** Injects a single query parameter by key (`undefined` if absent), or all query parameters as `URLSearchParams`. */
+export const query: RouteArgResolverFactory<string | undefined | URLSearchParams> = createRouteArgResolver(RouteParamTypes.QUERY);
+/** Injects a single path parameter by key (`undefined` if absent), or all path parameters as a record. */
+export const param: RouteArgResolverFactory<string | undefined | Record<string, string>> = createRouteArgResolver(RouteParamTypes.PARAM);
 /** Injects the parsed request body. */
 export const body: RouteArgResolverFactory<unknown> = createRouteArgResolver(RouteParamTypes.BODY);
 /** Injects a single request header by key, or all headers as a record. */

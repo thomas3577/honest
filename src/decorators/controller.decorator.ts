@@ -169,7 +169,7 @@ async function resolveHandlerInputs(
           cachedBody = await c.req.json();
           bodyParsed = true;
         }
-        return data.data ? (cachedBody as Record<string, unknown>)[data.data.toString()] : cachedBody;
+        return data.data ? (cachedBody as Record<string, unknown> | null)?.[data.data.toString()] : cachedBody;
       }
       return await getContextData(data, c, next);
     }));
@@ -216,7 +216,7 @@ async function getContextData(args: RouteArgResolver, c: Context, next: Next): P
     case RouteParamTypes.QUERY: {
       const query: URLSearchParams = new URL(c.req.raw.url).searchParams;
 
-      return data ? query.get(data.toString()) : query;
+      return data ? query.get(data.toString()) ?? undefined : query;
     }
     case RouteParamTypes.PARAM: {
       const params = c.req.param();
