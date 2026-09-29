@@ -18,6 +18,23 @@ Deno.test('errorHandler() maps ValidationError to 400 with issues', async () => 
   assertEquals(await response.json(), { error: 'Validation failed', issues: [{ message: 'Required' }] });
 });
 
+Deno.test('errorHandler() renders only message and a plain-key path, never the issue input', async () => {
+  const app = new Hono();
+
+  app.get('/', () => {
+    // Valibot-shaped issue: `input` on the issue and on each path segment.
+    const issue = { message: 'Invalid length', input: 'hunter2', path: [{ type: 'object', input: { password: 'hunter2' }, key: 'password', value: 'hunter2' }, 0] };
+
+    throw new ValidationError([issue]);
+  });
+  app.onError(errorHandler());
+
+  const response = await app.request('/');
+
+  assertEquals(response.status, 400);
+  assertEquals(await response.json(), { error: 'Validation failed', issues: [{ message: 'Invalid length', path: ['password', 0] }] });
+});
+
 Deno.test('errorHandler() maps HttpError to its own status and details', async () => {
   const app = new Hono();
 

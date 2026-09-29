@@ -363,7 +363,7 @@ export class ProductsController {
 
 ### Validation
 
-`validatedBody(schema)`, `validatedQuery(schema)`, `validatedParam(schema)`, and `validatedHeaders(schema)` validate the JSON body, query string, route params, or headers against any schema implementing the [Standard Schema](https://standardschema.dev) interface — Zod (>=3.24), Valibot, and ArkType all work out of the box, and honest doesn't depend on any of them. On failure they throw `ValidationError`, which `errorHandler()` (see [Error Handling](#error-handling)) turns into a `400` response with the schema's issues. Malformed JSON in `validatedBody()` is reported the same way, not as a 500. Repeated query keys (`?ids=1&ids=2`) are preserved as a string array by `validatedQuery()` instead of being collapsed to the last value.
+`validatedBody(schema)`, `validatedQuery(schema)`, `validatedParam(schema)`, and `validatedHeaders(schema)` validate the JSON body, query string, route params, or headers against any schema implementing the [Standard Schema](https://standardschema.dev) interface — Zod (>=3.24), Valibot, and ArkType all work out of the box, and honest doesn't depend on any of them. On failure they throw `ValidationError`, which `errorHandler()` (see [Error Handling](#error-handling)) turns into a `400` response with the schema's issues (only `message` and `path` — never the offending input). Malformed JSON in `validatedBody()` is reported the same way, not as a 500. Repeated query keys (`?ids=1&ids=2`) are preserved as a string array by `validatedQuery()` instead of being collapsed to the last value.
 
 ```typescript
 import { Controller, Post, validatedBody } from '@dx/honest';
@@ -522,7 +522,7 @@ Need a different response shape (uptime, version, dependency checks)? Call `isMo
 
 ### Error Handling
 
-Honest ships a ready-made `app.onError()` handler instead of a copy-paste recipe: `errorHandler()` maps `ValidationError` (thrown by the validation resolvers above) to a `400` with the schema's issues, `HttpError` to its own status/details, and anything else to a logged, generic `500`.
+Honest ships a ready-made `app.onError()` handler instead of a copy-paste recipe: `errorHandler()` maps `ValidationError` (thrown by the validation resolvers above) to a `400` with the schema's issues (`message` and `path` only), `HttpError` to its own status/details, and anything else to a logged, generic `500`.
 
 ```typescript
 import { Hono } from 'hono';
