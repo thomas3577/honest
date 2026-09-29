@@ -112,6 +112,25 @@ Deno.test('validatedBody() reports malformed JSON as a 400 ValidationError, not 
   assertEquals(body.issues[0].message.includes('Invalid JSON body'), true);
 });
 
+Deno.test('validatedBody() does not echo the malformed body in its 400 response', async () => {
+  const app = new Hono();
+
+  app.post('/', async (c) => {
+    const resolver = validatedBody(nameSchema);
+
+    return c.json(await resolver.handler!(c, resolver.data));
+  });
+  app.onError(errorHandler());
+
+  for (const body of ['hunter2', '{"password": hunter2}', `{"pad": "${'a'.repeat(100)}", "password": hunter2}`]) {
+    const response = await app.request('/', { method: 'POST', headers: { 'content-type': 'application/json' }, body });
+    const text = await response.text();
+
+    assertEquals(response.status, 400);
+    assertEquals(text.includes('hunter2'), false, text);
+  }
+});
+
 Deno.test('validatedQuery() validates the parsed query string', async () => {
   const app = new Hono();
 

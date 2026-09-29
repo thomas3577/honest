@@ -4,6 +4,13 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.3] - 2026-09-29
+
+### Security
+
+- `errorHandler()` no longer echoes request data in `400` validation responses: each issue is reduced to `message` and a plain-key `path`. Previously, extra issue fields (e.g. Valibot's `input`, and path segments carrying `input`/`value`) were returned verbatim, which could expose the whole body, including secrets.
+- `validatedBody()` strips the quoted body excerpt from the JSON parse error message (`Unexpected token 'x', "{…}" is not valid JSON` → `Unexpected token 'x'`).
+
 ## [0.1.2] - 2026-09-29
 
 ### Changed
