@@ -122,12 +122,15 @@ Deno.test('validatedBody() does not echo the malformed body in its 400 response'
   });
   app.onError(errorHandler());
 
-  for (const body of ['hunter2', '{"password": hunter2}', `{"pad": "${'a'.repeat(100)}", "password": hunter2}`]) {
+  // Short (fully quoted by V8) and long (truncated excerpt, `..."…"...`) bodies.
+  const pad = 'a'.repeat(100);
+
+  for (const body of ['hunter2', '{"value": s3cr3t-abc}', `{"pad": "${pad}", "value": s3cr3t-abc, "more": "${pad}"}`]) {
     const response = await app.request('/', { method: 'POST', headers: { 'content-type': 'application/json' }, body });
-    const text = await response.text();
 
     assertEquals(response.status, 400);
-    assertEquals(text.includes('hunter2'), false, text);
+    // Exact match: not even the first character of the value (`Unexpected token 's'`) may leak.
+    assertEquals(await response.json(), { error: 'Validation failed', issues: [{ message: 'Invalid JSON body' }] });
   }
 });
 

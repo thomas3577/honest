@@ -135,11 +135,9 @@ export function validatedBody<TSchema extends StandardSchema>(schema: TSchema): 
 
     try {
       json = await c.req.json();
-    } catch (error) {
-      // V8 quotes the (possibly truncated) body: `Unexpected token 'x', "{"password": x}" is not valid JSON` — strip that part.
-      const reason = (error instanceof Error ? error.message : String(error)).replace(/, (\.\.\.)?".*" is not valid JSON$/s, '');
-
-      throw new ValidationError([{ message: `Invalid JSON body: ${reason}` }]);
+    } catch {
+      // Fixed message on purpose: V8's parse errors quote (parts of) the body, which may contain secrets.
+      throw new ValidationError([{ message: 'Invalid JSON body' }]);
     }
 
     return validate(schema, json);

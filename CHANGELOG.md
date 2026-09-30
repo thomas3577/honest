@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.4] - 2026-09-30
+
+### Security
+
+- `validatedBody()` reports malformed JSON with the fixed message `Invalid JSON body` instead of the parser error. The 0.1.3 fix missed V8's truncated format (`..."…"... is not valid JSON`), so parts of the body could still leak, and `Unexpected token 'x'` revealed the first character of an unquoted value.
+
+### Changed
+
+- README: schema libraries' default messages can contain the received value (e.g. Valibot's `… but received 424242`); set custom messages when validating secrets.
+
 ## [0.1.3] - 2026-09-29
 
 ### Security
