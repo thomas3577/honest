@@ -1,8 +1,8 @@
-import { assertEquals, assertExists } from '@std/assert';
+import { assertEquals, assertExists, assertThrows } from '@std/assert';
 import { Hono } from 'hono';
 import type { Context } from 'hono';
 
-import { Get, Post } from './http-methods.decorator.ts';
+import { Get, HttpCode, Post } from './http-methods.decorator.ts';
 import { body, ctx, custom, headers, ip, next, param, query, req, res } from './route-params.decorator.ts';
 import { Controller, sendResult } from './controller.decorator.ts';
 import { registerMiddlewareMethodDecorator } from '../utils/router.util.ts';
@@ -451,4 +451,56 @@ Deno.test('ip({ trustProxy: true }) prefers X-Forwarded-For over the raw connect
     headers: { 'x-forwarded-for': '203.0.113.5, 10.0.0.1' },
   });
   assertEquals(await untrustedResponse.json(), { ip: '' });
+});
+
+@Controller('codes')
+class HttpCodeController {
+  @Post('created')
+  @HttpCode(201)
+  created() {
+    return { id: 1 };
+  }
+
+  @HttpCode(204)
+  @Get('no-content')
+  noContent() {
+    return { ignored: true };
+  }
+
+  @HttpCode(201)
+  @Get('missing')
+  missing() {
+    return undefined;
+  }
+
+  @HttpCode(201)
+  @Get('own-response')
+  ownResponse() {
+    return new Response('custom', { status: 202 });
+  }
+}
+
+Deno.test('@HttpCode() sets the status of returned values, regardless of decorator order', async () => {
+  const app = mountController(new HttpCodeController() as unknown as ControllerClass);
+
+  const created = await app.request('/codes/created', { method: 'POST' });
+  assertEquals(created.status, 201);
+  assertEquals(await created.json(), { id: 1 });
+
+  const noContent = await app.request('/codes/no-content');
+  assertEquals(noContent.status, 204);
+  assertEquals(await noContent.text(), '');
+
+  const missing = await app.request('/codes/missing');
+  assertEquals(missing.status, 404);
+
+  const ownResponse = await app.request('/codes/own-response');
+  assertEquals(ownResponse.status, 202);
+  assertEquals(await ownResponse.text(), 'custom');
+});
+
+Deno.test('@HttpCode() rejects a status outside 200-599', () => {
+  assertThrows(() => HttpCode(100), Error, '@HttpCode() expects an integer status from 200 to 599, got 100.');
+  assertThrows(() => HttpCode(600), Error, '@HttpCode() expects an integer status from 200 to 599, got 600.');
+  assertThrows(() => HttpCode(201.5), Error, '@HttpCode() expects an integer status from 200 to 599, got 201.5.');
 });

@@ -7,3 +7,4 @@ export const CONTROLLER_METADATA = Symbol('controller');
 export const API_TAGS_METADATA = Symbol('apiTags');
 export const API_OPERATION_METADATA = Symbol('apiOperation');
 export const API_RESPONSE_METADATA = Symbol('apiResponse');
+export const HTTP_CODE_METADATA = Symbol('httpCode');

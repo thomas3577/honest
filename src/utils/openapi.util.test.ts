@@ -2,7 +2,7 @@ import { assertEquals } from '@std/assert';
 
 import { ApiExcludeEndpoint, ApiOperation, ApiResponse, ApiTags } from '../decorators/openapi.decorator.ts';
 import { Controller } from '../decorators/controller.decorator.ts';
-import { All, Get, Post } from '../decorators/http-methods.decorator.ts';
+import { All, Delete, Get, HttpCode, Post } from '../decorators/http-methods.decorator.ts';
 import { Module } from '../decorators/module.decorator.ts';
 import { headers, param, query, validatedBody, validatedParam, validatedQuery } from '../decorators/route-params.decorator.ts';
 import type { JsonSchemaObject } from '../openapi-types.ts';
@@ -28,6 +28,14 @@ class WidgetController {
   @Get('undocumented')
   undocumented() {}
 
+  @ApiResponse({ status: 404, description: 'Not found' })
+  @Get('errors-only')
+  errorsOnly() {}
+
+  @ApiResponse({ status: 201, description: 'Created' })
+  @Post('created')
+  created() {}
+
   @ApiExcludeEndpoint()
   @Get('internal')
   internal() {}
@@ -44,7 +52,13 @@ Deno.test('buildOpenApiDocument() includes info and merges module routePrefix in
 
   assertEquals(document.openapi, '3.1.0');
   assertEquals(document.info, { title: 'Test API', version: '1.0.0' });
-  assertEquals(Object.keys(document.paths).sort(), ['/api/widgets/list', '/api/widgets/undocumented', '/api/widgets/{id}']);
+  assertEquals(Object.keys(document.paths).sort(), [
+    '/api/widgets/created',
+    '/api/widgets/errors-only',
+    '/api/widgets/list',
+    '/api/widgets/undocumented',
+    '/api/widgets/{id}',
+  ]);
 });
 
 Deno.test('buildOpenApiDocument() maps tags, summary, deprecated, and stacked responses', () => {
@@ -66,6 +80,23 @@ Deno.test('buildOpenApiDocument() synthesizes a default 200 response when no @Ap
   const operation = document.paths['/api/widgets/undocumented'].get;
 
   assertEquals(operation.responses, { '200': { description: 'Successful response' } });
+});
+
+Deno.test('buildOpenApiDocument() keeps the default 200 response when only error responses are declared', () => {
+  const document = buildOpenApiDocument(WidgetModule, { info: { title: 'Test API', version: '1.0.0' } });
+  const operation = document.paths['/api/widgets/errors-only'].get;
+
+  assertEquals(operation.responses, {
+    '200': { description: 'Successful response' },
+    '404': { description: 'Not found' },
+  });
+});
+
+Deno.test('buildOpenApiDocument() emits only the declared responses when a 2xx is declared', () => {
+  const document = buildOpenApiDocument(WidgetModule, { info: { title: 'Test API', version: '1.0.0' } });
+  const operation = document.paths['/api/widgets/created'].post;
+
+  assertEquals(operation.responses, { '201': { description: 'Created' } });
 });
 
 Deno.test('buildOpenApiDocument() maps a plain query() resolver to a simple parameter', () => {
@@ -208,4 +239,35 @@ Deno.test('buildOpenApiDocument() handles a Hono path-param constraint like :id{
 
   assertEquals(Object.keys(document.paths), ['/items/{id}']);
   assertEquals(document.paths['/items/{id}'].get.parameters, [{ name: 'id', in: 'path', required: true, schema: { type: 'string', pattern: '[0-9]+' } }]);
+});
+
+@Controller('coded')
+class HttpCodeOpenApiController {
+  @HttpCode(201)
+  @ApiResponse({ status: 409, description: 'Conflict' })
+  @Post()
+  create() {}
+
+  @HttpCode(204)
+  @Delete(':id')
+  remove() {}
+
+  @HttpCode(201)
+  @ApiResponse({ status: 200, description: 'Declared' })
+  @Post('declared')
+  declared() {}
+}
+
+@Module({ controllers: [HttpCodeOpenApiController] })
+class HttpCodeOpenApiModule {}
+
+Deno.test('buildOpenApiDocument() uses the @HttpCode() status for the default success response', () => {
+  const document = buildOpenApiDocument(HttpCodeOpenApiModule, { info: { title: 'Test API', version: '1.0.0' } });
+
+  assertEquals(document.paths['/coded'].post.responses, {
+    '201': { description: 'Successful response' },
+    '409': { description: 'Conflict' },
+  });
+  assertEquals(document.paths['/coded/{id}'].delete.responses, { '204': { description: 'Successful response' } });
+  assertEquals(document.paths['/coded/declared'].post.responses, { '200': { description: 'Declared' } });
 });

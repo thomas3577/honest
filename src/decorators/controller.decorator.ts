@@ -5,8 +5,9 @@ import type { Context } from 'hono';
 import * as log from '@std/log';
 
 import { RouteParamTypes } from '../enums.ts';
-import { API_OPERATION_METADATA, API_RESPONSE_METADATA, CONTROLLER_METADATA, METHOD_METADATA, MIDDLEWARE_METADATA } from '../const.ts';
-import type { ActionMetadata, ApiOperationMetadata, ApiResponseMetadata, ControllerClass, ControllerMetadata, HTTPMethods, MiddlewareHandler, Next, RouteArgResolver } from '../types.ts';
+import type { StatusCode } from 'hono/utils/http-status';
+import { API_OPERATION_METADATA, API_RESPONSE_METADATA, CONTROLLER_METADATA, HTTP_CODE_METADATA, METHOD_METADATA, MIDDLEWARE_METADATA } from '../const.ts';
+import type { ActionMetadata, ApiOperationMetadata, ApiResponseMetadata, ControllerClass, ControllerMetadata, HttpCodeMetadata, HTTPMethods, MiddlewareHandler, Next, RouteArgResolver } from '../types.ts';
 import { defineMetadata, getMetadata, getOwnMetadata } from '../utils/metadata.util.ts';
 
 type ControllerConstructor = new (...instance: never[]) => object;
@@ -29,6 +30,7 @@ export function Controller<T extends ControllerConstructor>(options?: string): (
     const middlewareRegistrations = (metadata[MIDDLEWARE_METADATA] as MiddlewareRegistration[] | undefined) ?? [];
     const apiOperations = [...((metadata[API_OPERATION_METADATA] as ApiOperationMetadata[] | undefined) ?? [])];
     const apiResponses = [...((metadata[API_RESPONSE_METADATA] as ApiResponseMetadata[] | undefined) ?? [])];
+    const httpCodes = [...((metadata[HTTP_CODE_METADATA] as HttpCodeMetadata[] | undefined) ?? [])];
 
     if (path) {
       defineMetadata(CONTROLLER_METADATA, { path } satisfies ControllerMetadata, fn.prototype);
@@ -44,6 +46,10 @@ export function Controller<T extends ControllerConstructor>(options?: string): (
 
     if (apiResponses.length > 0) {
       defineMetadata(API_RESPONSE_METADATA, apiResponses, fn.prototype);
+    }
+
+    if (httpCodes.length > 0) {
+      defineMetadata(HTTP_CODE_METADATA, httpCodes, fn.prototype);
     }
 
     for (const registration of middlewareRegistrations) {
@@ -98,6 +104,7 @@ export function Controller<T extends ControllerConstructor>(options?: string): (
           const methodMiddlewaresMetadata = getMetadata(MIDDLEWARE_METADATA, fn.prototype, meta.functionName);
           const methodMiddlewares = Array.isArray(methodMiddlewaresMetadata) ? methodMiddlewaresMetadata : methodMiddlewaresMetadata ? [methodMiddlewaresMetadata] : [];
           const middlewares = [...classMiddlewares, ...methodMiddlewares];
+          const status = httpCodes.find((entry) => entry.declarationId === meta.declarationId)?.status;
 
           methodMap[meta.method](`/${meta.path}`, ...middlewares, async (c: Context, next: Next) => {
             const handler = (this as unknown as ControllerMethodMap)[meta.functionName];
@@ -105,7 +112,7 @@ export function Controller<T extends ControllerConstructor>(options?: string): (
 
             const result = await handler.apply(this, inputs);
 
-            return sendResult(c, result);
+            return sendResult(c, result, status);
           });
 
           logMapping(meta, this.path);
@@ -141,11 +148,17 @@ function logMapping(meta: ActionMetadata, path?: string): void {
  * deliberate JSON value (`c.json(null)`, status 200) — only `undefined` is
  * treated as "no result", since `null` is valid, serializable JSON.
  *
+ * `status` comes from `@HttpCode()`: a returned `Response` keeps its own
+ * status and `undefined` still becomes a 404, while a null-body status
+ * (204/205/304) always sends an empty body, since `Response` rejects a body there.
+ *
  * Exported for direct unit testing; not part of the public API.
  */
-export async function sendResult(c: Context, result: unknown): Promise<Response> {
-  if (result === undefined) return await c.notFound();
+export async function sendResult(c: Context, result: unknown, status?: number): Promise<Response> {
   if (result instanceof Response) return result;
+  if (status === 204 || status === 205 || status === 304) return c.body(null, status);
+  if (result === undefined) return await c.notFound();
+  if (status !== undefined) c.status(status as StatusCode);
   if (typeof result === 'string') return c.text(result);
   if (result instanceof Uint8Array) return c.body(result as Uint8Array<ArrayBuffer>);
   if (result instanceof ArrayBuffer) return c.body(result);

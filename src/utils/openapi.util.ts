@@ -1,8 +1,8 @@
-import { API_OPERATION_METADATA, API_RESPONSE_METADATA, API_TAGS_METADATA, CONTROLLER_METADATA, METHOD_METADATA } from '../const.ts';
+import { API_OPERATION_METADATA, API_RESPONSE_METADATA, API_TAGS_METADATA, CONTROLLER_METADATA, HTTP_CODE_METADATA, METHOD_METADATA } from '../const.ts';
 import { RouteParamTypes } from '../enums.ts';
 import type { JsonSchemaObject, OpenApiDocument, OpenApiInfo, OpenApiOperationObject, OpenApiParameterObject, OpenApiServer } from '../openapi-types.ts';
 import type { StandardSchema } from '../standard-schema.ts';
-import type { ActionMetadata, ApiOperationMetadata, ApiResponseMetadata, ClassConstructor, ControllerMetadata, ValidatedResolverData } from '../types.ts';
+import type { ActionMetadata, ApiOperationMetadata, ApiResponseMetadata, ClassConstructor, ControllerMetadata, HttpCodeMetadata, ValidatedResolverData } from '../types.ts';
 import { getMetadata } from './metadata.util.ts';
 import { walkModuleTree } from './router.util.ts';
 
@@ -105,6 +105,12 @@ class ParameterCollector {
  * so this has none of the side effects a real `assignModule()` call might
  * trigger via provider constructors.
  *
+ * Every operation gets a placeholder `Successful response` unless it declares
+ * a 2xx status via `@ApiResponse()`. Its status is the route's `@HttpCode()`,
+ * else `200`. Error-only declarations (e.g. just a 404) therefore still emit
+ * the success response; an operation that declares any 2xx emits exactly
+ * what it declares.
+ *
  * @param {ClassConstructor} module - the root module to document (the same one passed to `assignModule()`)
  * @param {BuildOpenApiDocumentOptions} options - document info and the optional Standard Schema → JSON Schema converter
  */
@@ -133,6 +139,7 @@ export function buildOpenApiDocument(module: ClassConstructor, options: BuildOpe
     const actions = getMetadata<ActionMetadata[]>(METHOD_METADATA, Controller.prototype) ?? [];
     const operations = getMetadata<ApiOperationMetadata[]>(API_OPERATION_METADATA, Controller.prototype) ?? [];
     const responses = getMetadata<ApiResponseMetadata[]>(API_RESPONSE_METADATA, Controller.prototype) ?? [];
+    const httpCodes = getMetadata<HttpCodeMetadata[]>(HTTP_CODE_METADATA, Controller.prototype) ?? [];
     const controllerPath = joinPaths(prefix, controllerMeta?.path);
 
     controllerTags?.forEach((tag) => tags.add(tag));
@@ -197,17 +204,21 @@ export function buildOpenApiDocument(module: ClassConstructor, options: BuildOpe
       const responseEntries = responses.filter((entry) => entry.declarationId === action.declarationId);
       const operationResponses: OpenApiOperationObject['responses'] = {};
 
-      if (responseEntries.length === 0) {
-        operationResponses['200'] = { description: 'Successful response' };
-      } else {
-        for (const response of responseEntries) {
-          const jsonSchema = response.schema ? resolveSchema(response.schema, options.schemaToJsonSchema) : undefined;
+      // Placeholder success response (the @HttpCode() status, else 200) unless a 2xx is declared,
+      // so error-only declarations keep a success response.
+      if (!responseEntries.some((entry) => entry.status >= 200 && entry.status < 300)) {
+        const status = httpCodes.find((entry) => entry.declarationId === action.declarationId)?.status ?? 200;
 
-          operationResponses[String(response.status)] = {
-            description: response.description ?? `HTTP ${response.status}`,
-            ...(jsonSchema ? { content: { 'application/json': { schema: jsonSchema } } } : {}),
-          };
-        }
+        operationResponses[String(status)] = { description: 'Successful response' };
+      }
+
+      for (const response of responseEntries) {
+        const jsonSchema = response.schema ? resolveSchema(response.schema, options.schemaToJsonSchema) : undefined;
+
+        operationResponses[String(response.status)] = {
+          description: response.description ?? `HTTP ${response.status}`,
+          ...(jsonSchema ? { content: { 'application/json': { schema: jsonSchema } } } : {}),
+        };
       }
 
       const parameterList = parameters.toArray();

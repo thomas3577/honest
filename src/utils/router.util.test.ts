@@ -300,6 +300,62 @@ Deno.test('initModule() propagates an error thrown by a hook', async () => {
   await assertRejects(() => initModule(app), Error, 'boom-init');
 });
 
+const asyncControllerState = { initialized: false, destroyed: false };
+
+@Controller('async-lifecycle')
+class AsyncLifecycleController implements OnModuleInit, OnModuleDestroy {
+  @Get('ping')
+  ping() {
+    return 'pong';
+  }
+
+  async onModuleInit(): Promise<void> {
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    asyncControllerState.initialized = true;
+  }
+
+  async onModuleDestroy(): Promise<void> {
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    asyncControllerState.destroyed = true;
+  }
+}
+
+@Module({ controllers: [AsyncLifecycleController] })
+class AsyncLifecycleModule {}
+
+Deno.test('initModule()/destroyModule() await async hooks on a controller, without any request being sent', async () => {
+  const app = assignModule(AsyncLifecycleModule);
+
+  await initModule(app);
+  assertEquals(asyncControllerState, { initialized: true, destroyed: false });
+
+  await destroyModule(app);
+  assertEquals(asyncControllerState, { initialized: true, destroyed: true });
+});
+
+@Controller('throwing-controller')
+class ThrowingInitAsyncController implements OnModuleInit {
+  @Get('ping')
+  ping() {
+    return 'pong';
+  }
+
+  async onModuleInit(): Promise<void> {
+    await Promise.resolve();
+    throw new Error('boom-controller-init');
+  }
+}
+
+@Module({ controllers: [ThrowingInitAsyncController] })
+class ThrowingInitAsyncControllerModule {}
+
+Deno.test('initModule() propagates an error thrown by an async controller hook', async () => {
+  const app = assignModule(ThrowingInitAsyncControllerModule);
+
+  await assertRejects(() => initModule(app), Error, 'boom-controller-init');
+  assertEquals(isModuleReady(app), false);
+});
+
 Deno.test('initModule()/destroyModule()/isModuleReady()/healthCheck() throw a clear error when given a Hono instance not returned by assignModule()', async () => {
   const app = new Hono();
   const message = 'initModule()/destroyModule()/isModuleReady()/healthCheck() must be called with the exact Hono instance returned by assignModule().';

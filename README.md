@@ -157,6 +157,22 @@ The `@Get()` HTTP request method decorator before the `findAll()` method tells t
 
 For http methods, you can use `@Get()`, `@Post()`, `@Put()`, `@Patch()`, `@Delete()`, `@All()`.
 
+Routes respond with `200` by default. Use `@HttpCode()` to set a different success status — it applies to returned values (a returned `Response` keeps its own status, `undefined` still means 404), and `204`/`205`/`304` always send an empty body. `buildOpenApiDocument()` picks the status up for its default success response.
+
+```typescript
+@Post([validatedBody(CreateUserSchema)])
+@HttpCode(201)
+create(body: CreateUser) {
+  return this.userService.create(body);
+}
+
+@Delete(':id', [param('id')])
+@HttpCode(204)
+remove(id: string) {
+  this.userService.remove(id);
+}
+```
+
 ### Route Arguments
 
 Handlers can map request-derived values directly on the HTTP method decorator.
