@@ -1,7 +1,7 @@
 import '../utils/reflect-shim.ts';
 
-import { METHOD_METADATA } from '../const.ts';
-import type { ActionMetadata, HTTPMethods, MethodDecoratorFn, RouteArgResolver } from '../types.ts';
+import { HTTP_CODE_METADATA, METHOD_METADATA } from '../const.ts';
+import type { ActionMetadata, HttpCodeMetadata, HTTPMethods, MethodDecoratorFn, RouteArgResolver } from '../types.ts';
 import { getMethodDeclarationId } from '../utils/method-identity.util.ts';
 
 type DecoratorMetadataBag = Record<PropertyKey, unknown>;
@@ -110,4 +110,30 @@ function addMetadata<T>(value: T, metadata: DecoratorMetadataBag, key: symbol): 
   const list = (metadata[key] as T[] | undefined) ?? [];
 
   metadata[key] = [...list, value];
+}
+
+/**
+ * Sets the success status code a route responds with (default `200`), e.g. `@HttpCode(201)` for a create
+ * or `@HttpCode(204)` for a delete. Applies only when the handler returns a value — a returned `Response`
+ * keeps its own status, and `undefined` still means 404. For the null-body statuses `204`/`205`/`304` the
+ * response is always sent without a body, whatever the handler returns.
+ *
+ * `buildOpenApiDocument()` uses this status for its placeholder success response.
+ *
+ * @param {number} status - HTTP status code, an integer from 200 to 599
+ */
+export function HttpCode(status: number): MethodDecoratorFn {
+  if (!Number.isInteger(status) || status < 200 || status > 599) {
+    throw new Error(`@HttpCode() expects an integer status from 200 to 599, got ${status}.`);
+  }
+
+  return (value, context) => {
+    if (context.kind !== 'method' || context.static || context.private || typeof context.name !== 'string') {
+      throw new Error('@HttpCode() can only be used on public instance methods.');
+    }
+
+    const meta: HttpCodeMetadata = { declarationId: getMethodDeclarationId(value), status };
+
+    addMetadata(meta, context.metadata as DecoratorMetadataBag, HTTP_CODE_METADATA);
+  };
 }

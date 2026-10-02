@@ -96,6 +96,12 @@ export interface ApiResponseMetadata {
   declarationId?: number;
 }
 
+export interface HttpCodeMetadata {
+  status: number;
+  /** Identifies the exact method declaration this came from — see `getMethodDeclarationId()`. */
+  declarationId: number;
+}
+
 export type ValidatedResolverKind = 'body' | 'query' | 'param' | 'headers';
 
 /**
@@ -110,7 +116,11 @@ export interface ValidatedResolverData<TSchema extends StandardSchema = Standard
   schema: TSchema;
 }
 
-/** Implement on a controller or provider to run setup logic once `assignModule()` has built the module tree — see `initModule()`. */
+/**
+ * Implement on a controller or provider to run setup logic once `assignModule()` has built the module tree — see `initModule()`.
+ *
+ * Controllers are always eagerly built, so their hook runs like a provider's (after providers, async awaited, errors propagated) — but only once you `await initModule(app)`; neither `assignModule()` nor `createTestApp()` nor a request runs it.
+ */
 export interface OnModuleInit {
   /** Called once after the module tree is built. */
   onModuleInit(): void | Promise<void>;

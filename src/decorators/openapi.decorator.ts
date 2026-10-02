@@ -64,7 +64,14 @@ export function ApiOperation(options: ApiOperationOptions): MethodDecorator {
   };
 }
 
-/** Documents one possible response for a route. Stackable — apply multiple times to describe multiple status codes. */
+/**
+ * Documents one possible response for a route. Stackable — apply multiple times to describe multiple status codes.
+ *
+ * Unless at least one 2xx status is declared, `buildOpenApiDocument()` adds a placeholder
+ * `Successful response` with the route's `@HttpCode()` status, else `200` — so declaring only
+ * error responses keeps the success response.
+ * Declare a 2xx (e.g. `201`, `204`) to replace the placeholder.
+ */
 export function ApiResponse(options: ApiResponseOptions): MethodDecorator {
   return (value, context) => {
     if (context.kind !== 'method' || context.static || context.private || typeof context.name !== 'string') {

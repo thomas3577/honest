@@ -7,7 +7,7 @@
 export { Config } from './config.decorator.ts';
 export { Controller } from './controller.decorator.ts';
 export { UseGuard } from './guard.decorator.ts';
-export { All, Delete, Get, Patch, Post, Put } from './http-methods.decorator.ts';
+export { All, Delete, Get, HttpCode, Patch, Post, Put } from './http-methods.decorator.ts';
 export { inject, Injectable } from './injectable.ts';
 export { Module } from './module.decorator.ts';
 export { ApiExcludeEndpoint, ApiOperation, ApiResponse, ApiTags } from './openapi.decorator.ts';
