@@ -1,0 +1,8 @@
+{
+  "name": "honest-workers-test",
+  "main": "worker.ts",
+  "compatibility_date": "2026-09-01",
+  "vars": {
+    "GREETING": "hello from workerd"
+  }
+}

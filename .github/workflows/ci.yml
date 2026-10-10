@@ -84,3 +84,22 @@ jobs:
         if: matrix.runtime == 'bun'
         run: bun test
 
+  workers:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Setup repo
+        uses: actions/checkout@v7.0.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          npm ci --prefix test/workers
+
+      - name: Run tests (Cloudflare Workers)
+        run: npm test --prefix test/workers

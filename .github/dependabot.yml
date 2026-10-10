@@ -11,6 +11,8 @@ updates:
       interval: 'daily'
 
   - package-ecosystem: 'npm'
-    directory: '/'
+    directories:
+      - '/'
+      - '/test/workers'
     schedule:
       interval: 'daily'
