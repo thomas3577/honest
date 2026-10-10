@@ -1,7 +1,7 @@
 {
   "version": "5",
   "specifiers": {
-    "jsr:@hono/hono@^4.13.12": "4.13.13",
+    "jsr:@hono/hono@^4.13.13": "4.13.13",
     "jsr:@needle-di/core@1.2.1": "1.2.1",
     "jsr:@std/fmt@^1.0.5": "1.0.10",
     "jsr:@std/fs@^1.0.11": "1.0.24",
@@ -9,8 +9,8 @@
     "jsr:@std/log@0.224.14": "0.224.14",
     "npm:@jsr/std__log@0.224.14": "0.224.14",
     "npm:@needle-di/core@1.2.1": "1.2.1",
-    "npm:@scalar/hono-api-reference@0.11.16": "0.11.16_hono@4.13.12",
-    "npm:hono@4.13.12": "4.13.12",
+    "npm:@scalar/hono-api-reference@0.11.16": "0.11.16_hono@4.13.13",
+    "npm:hono@4.13.13": "4.13.13",
     "npm:tsx@4.23.15": "4.23.15"
   },
   "jsr": {
@@ -226,7 +226,7 @@
     "@scalar/helpers@0.11.1": {
       "integrity": "sha512-Knwbe0IYqFk0PPDoOKLasqglBHfyf9/zwWWqFsSNi/AtdjM29wSZXN6p8DFid6iB5B9epYH9YiSgJ6tpD00TEw=="
     },
-    "@scalar/hono-api-reference@0.11.16_hono@4.13.12": {
+    "@scalar/hono-api-reference@0.11.16_hono@4.13.13": {
       "integrity": "sha512-y0duqBJF2yQhkkk7xMFyWSx06+Y0ImOLtVKDH3d+jgTaVGbAtyxwkuKmj+Dd7eq3t9P7XnZx4YgBJ0S9WzsIQQ==",
       "dependencies": [
         "@scalar/client-side-rendering",
@@ -290,8 +290,8 @@
       "os": ["darwin"],
       "scripts": true
     },
-    "hono@4.13.12": {
-      "integrity": "sha512-6E2QDAc9Ick9Sq77ZrGS/dk2WUYni91aufTw6LJKpV7w8kW5/GxVUc650FOADOmlwg3K+f7Pun6XlV+pYmW6gw=="
+    "hono@4.13.13": {
+      "integrity": "sha512-CQ46U0ZkAGmbT/4UxdzzGJpacP2IeKgY4a5/tOI9AABbpOMfK739wfDXmv1usCk+3RkKj1hQy4/fjhiwa2xlrA=="
     },
     "nanoid@5.1.16": {
       "integrity": "sha512-kVrnsrJqMR8+oLJnGEmSWw9BivK5mt7H3FZatVRjrc5wGqFYuBxX1yG7+A7Gi5AefkX6t/oCkizcQgpu0cY1dQ==",
@@ -322,7 +322,7 @@
   },
   "workspace": {
     "dependencies": [
-      "jsr:@hono/hono@^4.13.12",
+      "jsr:@hono/hono@^4.13.13",
       "jsr:@needle-di/core@1.2.1",
       "jsr:@std/log@0.224.14"
     ],
@@ -330,7 +330,7 @@
       "dependencies": [
         "npm:@jsr/std__log@0.224.14",
         "npm:@needle-di/core@1.2.1",
-        "npm:hono@4.13.12",
+        "npm:hono@4.13.13",
         "npm:tsx@4.23.15"
       ]
     }

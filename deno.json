@@ -13,7 +13,7 @@
   },
   "imports": {
     "@needle-di/core": "jsr:@needle-di/core@1.2.1",
-    "hono": "jsr:@hono/hono@^4.13.12",
+    "hono": "jsr:@hono/hono@^4.13.13",
     "@std/log": "jsr:@std/log@0.224.14"
   },
   "publish": {

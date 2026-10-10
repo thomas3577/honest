@@ -10,7 +10,7 @@ Honest is a decorator-driven application toolkit for [Hono](https://hono.dev) th
 
 Honest is the same idea as [oakest](https://github.com/thomas3577/oakest) — a decorator-driven, NestJS-like toolkit — but built on Hono instead of [Oak](https://jsr.io/@oak/oak). See [Differences from oakest](#differences-from-oakest) at the end if you know oakest already.
 
-**Compatibility:** requires Hono `^4.13.12`. Honest's own `deno.json` declares this as a version range, not an exact pin, so Deno can resolve it to the same Hono install your own project already uses wherever possible — keep your project on a single resolved Hono version (on Node.js and Bun, install Hono from JSR as shown in [Installation](#installation)). Mixing two different Hono versions in one project can produce confusing `Context is not assignable to Context`-style TypeScript errors, since Hono's classes use private fields that make two separately-resolved copies of the same version nominally incompatible.
+**Compatibility:** requires Hono `^4.13.13`. Honest's own `deno.json` declares this as a version range, not an exact pin, so Deno can resolve it to the same Hono install your own project already uses wherever possible — keep your project on a single resolved Hono version (on Node.js and Bun, install Hono from JSR as shown in [Installation](#installation)). Mixing two different Hono versions in one project can produce confusing `Context is not assignable to Context`-style TypeScript errors, since Hono's classes use private fields that make two separately-resolved copies of the same version nominally incompatible.
 
 ## Contents
 
@@ -64,7 +64,7 @@ Honest is published on [JSR](https://jsr.io/@dx/honest). Supported runtimes — 
 | Bun                | `bunx jsr add @dx/honest`, then `bun add hono@npm:@jsr/hono__hono` |
 | Cloudflare Workers | as for Node.js                                                     |
 
-The examples import Hono as `hono`. On Deno, map it in your `deno.json` `imports` (`"hono": "jsr:@hono/hono@^4.13.12"`). On Node.js and Bun, install Hono from JSR under the name `hono` as shown above rather than the npm `hono` package: Honest's npm build depends on the JSR copy, and mixing the two produces `Context is not assignable to Context` type errors.
+The examples import Hono as `hono`. On Deno, map it in your `deno.json` `imports` (`"hono": "jsr:@hono/hono@^4.13.13"`). On Node.js and Bun, install Hono from JSR under the name `hono` as shown above rather than the npm `hono` package: Honest's npm build depends on the JSR copy, and mixing the two produces `Context is not assignable to Context` type errors.
 
 Honest uses standard (TC39) decorators. Deno, Bun and Wrangler (Workers) run them directly. Node.js's built-in type stripping cannot (decorators are not erasable syntax), so run TypeScript through [tsx](https://tsx.is) (`npx tsx main.ts`) or compile with `tsc` (`target` ES2022 or later, without `experimentalDecorators`).
 
@@ -687,13 +687,13 @@ A test double works as a provider the same way a real one does — nothing test-
 
 ### Production Hardening
 
-None of the following needs any honest-specific code — `assignModule()` returns a plain `Hono` instance, so Hono's own middleware (and the wider Hono ecosystem) applies directly, before you mount your module. Honest re-exports only its own API from `@dx/honest`; import Hono submodules like `hono/cors` or `hono/secure-headers` straight from `hono`, same as in a plain Hono app. On Node.js and Bun they resolve from the installed package. On Deno, each submodule needs its own entry in your `deno.json` `imports` — a single trailing-slash entry (`"hono/": "jsr:@hono/hono@^4.13.12/"`) does not resolve JSR subpaths, so list the ones you use explicitly:
+None of the following needs any honest-specific code — `assignModule()` returns a plain `Hono` instance, so Hono's own middleware (and the wider Hono ecosystem) applies directly, before you mount your module. Honest re-exports only its own API from `@dx/honest`; import Hono submodules like `hono/cors` or `hono/secure-headers` straight from `hono`, same as in a plain Hono app. On Node.js and Bun they resolve from the installed package. On Deno, each submodule needs its own entry in your `deno.json` `imports` — a single trailing-slash entry (`"hono/": "jsr:@hono/hono@^4.13.13/"`) does not resolve JSR subpaths, so list the ones you use explicitly:
 
 ```jsonc
 "imports": {
-  "hono": "jsr:@hono/hono@^4.13.12",
-  "hono/cors": "jsr:@hono/hono@^4.13.12/cors",
-  "hono/secure-headers": "jsr:@hono/hono@^4.13.12/secure-headers"
+  "hono": "jsr:@hono/hono@^4.13.13",
+  "hono/cors": "jsr:@hono/hono@^4.13.13/cors",
+  "hono/secure-headers": "jsr:@hono/hono@^4.13.13/secure-headers"
 }
 ```
 
