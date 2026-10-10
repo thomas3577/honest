@@ -9,7 +9,7 @@
   },
   "tasks": {
     "demo": "deno run -A ./demo/main.ts",
-    "update": "deno outdated --update --latest"
+    "update": "deno outdated --update --latest && npm install"
   },
   "imports": {
     "@needle-di/core": "jsr:@needle-di/core@1.2.1",
