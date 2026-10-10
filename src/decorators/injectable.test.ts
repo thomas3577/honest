@@ -1,4 +1,5 @@
-import { assertEquals } from '@std/assert';
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
 
 import { INJECTABLE_OPTIONS_METADATA, INJECTOR_INTERFACES_METADATA } from '../const.ts';
 import { getMetadata } from '../utils/metadata.util.ts';
@@ -19,26 +20,26 @@ class SingleTokenInjectable {}
 @Injectable({ implementing: [TOKEN_A, TOKEN_B] })
 class MultiTokenInjectable {}
 
-Deno.test('Injectable() defaults to singleton metadata', () => {
-  assertEquals(getMetadata(INJECTABLE_OPTIONS_METADATA, DefaultInjectable), {
+test('Injectable() defaults to singleton metadata', () => {
+  assert.deepEqual(getMetadata(INJECTABLE_OPTIONS_METADATA, DefaultInjectable), {
     isSingleton: true,
   });
 });
 
-Deno.test('Injectable() stores explicit isSingleton: false metadata', () => {
-  assertEquals(getMetadata(INJECTABLE_OPTIONS_METADATA, NonSingletonInjectable), {
+test('Injectable() stores explicit isSingleton: false metadata', () => {
+  assert.deepEqual(getMetadata(INJECTABLE_OPTIONS_METADATA, NonSingletonInjectable), {
     isSingleton: false,
   });
 });
 
-Deno.test('Injectable() normalizes a single implementing token into metadata', () => {
-  assertEquals(getMetadata(INJECTOR_INTERFACES_METADATA, SingleTokenInjectable), [TOKEN_A]);
+test('Injectable() normalizes a single implementing token into metadata', () => {
+  assert.deepEqual(getMetadata(INJECTOR_INTERFACES_METADATA, SingleTokenInjectable), [TOKEN_A]);
 });
 
-Deno.test('Injectable() preserves multiple implementing tokens', () => {
-  assertEquals(getMetadata(INJECTOR_INTERFACES_METADATA, MultiTokenInjectable), [TOKEN_A, TOKEN_B]);
+test('Injectable() preserves multiple implementing tokens', () => {
+  assert.deepEqual(getMetadata(INJECTOR_INTERFACES_METADATA, MultiTokenInjectable), [TOKEN_A, TOKEN_B]);
 });
 
-Deno.test('Injectable() leaves implementing metadata unset when no token is provided', () => {
-  assertEquals(getMetadata(INJECTOR_INTERFACES_METADATA, DefaultInjectable), undefined);
+test('Injectable() leaves implementing metadata unset when no token is provided', () => {
+  assert.deepEqual(getMetadata(INJECTOR_INTERFACES_METADATA, DefaultInjectable), undefined);
 });

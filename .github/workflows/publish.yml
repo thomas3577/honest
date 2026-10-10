@@ -2,13 +2,18 @@ name: Publish
 
 on:
   push:
-    branches:
-      - main
     tags:
       - '*'
 
+permissions:
+  contents: read
+
 jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
   publish:
+    needs: ci
     runs-on: ubuntu-latest
 
     permissions:
@@ -24,15 +29,5 @@ jobs:
         with:
           deno-version: v2.9.6
 
-      - name: Verify formatting
-        run: deno fmt --check
-
-      - name: Run linter
-        run: deno lint
-
-      - name: Run tests
-        run: deno test --allow-env
-
       - name: Publish package
-        if: startsWith(github.ref, 'refs/tags/')
         run: deno publish

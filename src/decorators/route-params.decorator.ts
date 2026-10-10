@@ -83,8 +83,10 @@ export type IpResolverOptions = {
 };
 
 /**
- * Resolves the client IP. By default uses Hono's Deno adapter
- * (`getConnInfo`), same as calling `ip()` with no options. Pass
+ * Resolves the client IP. By default reads the connection address the
+ * runtime's server passes to Hono (`Deno.serve`, `Bun.serve`,
+ * `@hono/node-server`), or `cf-connecting-ip` on Cloudflare Workers;
+ * `''` if unknown. Pass
  * `{ trustProxy: true }` to prefer `X-Forwarded-For` when running behind a
  * reverse proxy/load balancer — only do this if that proxy is trusted to
  * set the header itself, since it's otherwise client-spoofable.

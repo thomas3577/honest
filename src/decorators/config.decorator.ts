@@ -1,9 +1,17 @@
 import { ValidationError } from '../errors.ts';
 import type { InferOutput, StandardSchema } from '../standard-schema.ts';
 
+// Read through globalThis instead of importing node:process, so importing
+// Honest never fails on a runtime without it (Workers without nodejs_compat).
+function readProcessEnv(): Record<string, unknown> {
+  const process = (globalThis as { process?: { env: Record<string, string | undefined> } }).process;
+
+  return { ...process?.env };
+}
+
 /**
  * Returns a base class that validates a config source — by default
- * `Deno.env.toObject()` — against a Standard Schema (Zod, Valibot, ArkType, ...)
+ * `process.env` — against a Standard Schema (Zod, Valibot, ArkType, ...)
  * once, synchronously, in its constructor, and exposes the validated,
  * typed result as `.value`. Extend it, don't decorate with it — TypeScript
  * can't propagate a decorator's return type to the decorated class's own
@@ -29,10 +37,14 @@ import type { InferOutput, StandardSchema } from '../standard-schema.ts';
  * Validation failure throws `ValidationError` immediately, the same as any
  * other constructor error `assignModule()` would let escape — it's a
  * startup failure, not a request, so it does not go through `errorHandler()`.
+ *
+ * `process.env` exists on Deno, Node.js and Bun. On Cloudflare Workers pass
+ * the bindings as `source` instead (`() => env`, with `env` imported from
+ * `cloudflare:workers`); without a `process` global the default reads `{}`.
  */
 export function Config<TSchema extends StandardSchema>(
   schema: TSchema,
-  source: () => Record<string, unknown> = () => Deno.env.toObject(),
+  source: () => Record<string, unknown> = readProcessEnv,
 ): new () => { readonly value: InferOutput<TSchema> } {
   return class {
     readonly value: InferOutput<TSchema>;

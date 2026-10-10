@@ -1,4 +1,5 @@
-import { assertStrictEquals, assertThrows } from '@std/assert';
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
 
 import { Injectable } from '../decorators/injectable.ts';
 import { createInjector, inject } from './injector.util.ts';
@@ -63,32 +64,32 @@ class _ExplicitTokenRoot {
 @Injectable({ isSingleton: false })
 class _NonSingletonProvider {}
 
-Deno.test('inject() reuses singleton services within the same object graph', () => {
+test('inject() reuses singleton services within the same object graph', () => {
   const root = createInjector([_SingletonService, _SingletonConsumerA, _SingletonConsumerB]).resolve(_SingletonRoot);
 
-  assertStrictEquals(root.consumerA.service, root.consumerB.service);
+  assert.equal(root.consumerA.service, root.consumerB.service);
 });
 
-Deno.test('createInjector() resolves implementing tokens through explicit Needle inject()', () => {
+test('createInjector() resolves implementing tokens through explicit Needle inject()', () => {
   const consumer = createInjector([_ExplicitTokenImplementation]).resolve(_ExplicitTokenConsumer);
 
-  assertStrictEquals(consumer.service instanceof _ExplicitTokenImplementation, true);
+  assert.equal(consumer.service instanceof _ExplicitTokenImplementation, true);
 });
 
-Deno.test('createInjector() resolves multiple implementing tokens to the same singleton provider', () => {
+test('createInjector() resolves multiple implementing tokens to the same singleton provider', () => {
   const root = createInjector([_ExplicitTokenImplementation, _ExplicitTokenConsumer, _ExplicitTokenConsumerTwo]).resolve(_ExplicitTokenRoot);
 
-  assertStrictEquals(root.consumerA.service instanceof _ExplicitTokenImplementation, true);
-  assertStrictEquals(root.consumerA.service, root.consumerB.service);
+  assert.equal(root.consumerA.service instanceof _ExplicitTokenImplementation, true);
+  assert.equal(root.consumerA.service, root.consumerB.service);
 });
 
-Deno.test('createInjector() resolves root classes that are not listed as providers', () => {
+test('createInjector() resolves root classes that are not listed as providers', () => {
   const consumer = createInjector([_SingletonService]).resolve(_RootOnlyConsumer);
 
-  assertStrictEquals(consumer.service instanceof _SingletonService, true);
+  assert.equal(consumer.service instanceof _SingletonService, true);
 });
 
-Deno.test('createInjector() throws when an explicit Needle dependency is not provided', () => {
+test('createInjector() throws when an explicit Needle dependency is not provided', () => {
   let error: unknown;
 
   try {
@@ -97,14 +98,14 @@ Deno.test('createInjector() throws when an explicit Needle dependency is not pro
     error = caughtError;
   }
 
-  assertStrictEquals(error instanceof Error, true);
-  assertStrictEquals((error as Error).message.includes('No provider(s) found'), true);
+  assert.equal(error instanceof Error, true);
+  assert.equal((error as Error).message.includes('No provider(s) found'), true);
 });
 
-Deno.test('createInjector() rejects providers marked with isSingleton: false', () => {
-  const error = assertThrows(() => createInjector([_NonSingletonProvider])) as Error;
-
-  assertStrictEquals(error.message, 'Provider _NonSingletonProvider uses isSingleton: false, but explicit Needle injection only supports singleton providers.');
+test('createInjector() rejects providers marked with isSingleton: false', () => {
+  assert.throws(() => createInjector([_NonSingletonProvider]), {
+    message: 'Provider _NonSingletonProvider uses isSingleton: false, but explicit Needle injection only supports singleton providers.',
+  });
 });
 
 @Injectable()
@@ -116,7 +117,7 @@ class _ScopedConsumer {
   constructor(readonly shared = inject(_ScopeSharedSingleton)) {}
 }
 
-Deno.test('createScope() returns a fresh instance per scope, while still resolving the parent injector singletons', () => {
+test('createScope() returns a fresh instance per scope, while still resolving the parent injector singletons', () => {
   const rootInjector = createInjector([_ScopeSharedSingleton]);
 
   const requestOneScope = rootInjector.createScope();
@@ -125,14 +126,14 @@ Deno.test('createScope() returns a fresh instance per scope, while still resolvi
   const consumerOne = requestOneScope.resolve(_ScopedConsumer);
   const consumerTwo = requestTwoScope.resolve(_ScopedConsumer);
 
-  assertStrictEquals(consumerOne === consumerTwo, false);
-  assertStrictEquals(consumerOne.shared, consumerTwo.shared);
-  assertStrictEquals(consumerOne.shared, rootInjector.resolve(_ScopeSharedSingleton));
+  assert.equal(consumerOne === consumerTwo, false);
+  assert.equal(consumerOne.shared, consumerTwo.shared);
+  assert.equal(consumerOne.shared, rootInjector.resolve(_ScopeSharedSingleton));
 });
 
-Deno.test('createScope() resolves the same instance for repeated resolves within one scope', () => {
+test('createScope() resolves the same instance for repeated resolves within one scope', () => {
   const rootInjector = createInjector([_ScopeSharedSingleton]);
   const requestScope = rootInjector.createScope();
 
-  assertStrictEquals(requestScope.resolve(_ScopedConsumer), requestScope.resolve(_ScopedConsumer));
+  assert.equal(requestScope.resolve(_ScopedConsumer), requestScope.resolve(_ScopedConsumer));
 });

@@ -15,6 +15,12 @@ type StandardMetadataDecoratorContext = {
   metadata: DecoratorMetadataBag;
 };
 
+// Only Deno ships Symbol.metadata. On Node.js and Bun, esbuild/swc/Bun fall
+// back to Symbol.for('Symbol.metadata') and TypeScript's own emit drops
+// decorator metadata entirely, so define that same fallback before any
+// decorated class is evaluated (decorators are imported from here first).
+(Symbol as { metadata?: symbol }).metadata ??= Symbol.for('Symbol.metadata');
+
 const classMetadataStore = new WeakMap<MetadataTarget, Map<MetadataKey, unknown>>();
 const memberMetadataStore = new WeakMap<MetadataTarget, Map<MetadataPropertyKey, Map<MetadataKey, unknown>>>();
 const standardMetadataStoreKey = Symbol('standardMetadataStore');

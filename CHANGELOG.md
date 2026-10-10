@@ -4,6 +4,20 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.2.0-alpha.1] - 2026-10-10
+
+### Added
+
+- Runs on Node.js (>= 22), Bun and Cloudflare Workers in addition to Deno; CI tests every runtime.
+- `ip()` resolves the client address on Bun (`Bun.serve`), Node.js (`@hono/node-server`) and Workers (`cf-connecting-ip`), not only on Deno.
+
+### Changed
+
+- `Config()` reads `process.env` by default instead of `Deno.env.toObject()` (same values on Deno). Without a `process` global (Workers) it reads `{}`; pass the bindings as `source`.
+- `Symbol.metadata` is polyfilled with `Symbol.for('Symbol.metadata')` where the runtime lacks it, so decorator metadata works outside Deno.
+- Tests use `node:test` and `node:assert/strict` instead of `Deno.test` and `@std/assert`.
+- Publishing moved to `.github/workflows/publish.yml`, which runs the full CI before `deno publish`.
+
 ## [0.1.4] - 2026-09-30
 
 ### Security

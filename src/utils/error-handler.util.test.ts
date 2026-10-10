@@ -1,10 +1,11 @@
-import { assertEquals } from '@std/assert';
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
 import { Hono } from 'hono';
 
 import { HttpError, ValidationError } from '../errors.ts';
 import { errorHandler } from './error-handler.util.ts';
 
-Deno.test('errorHandler() maps ValidationError to 400 with issues', async () => {
+test('errorHandler() maps ValidationError to 400 with issues', async () => {
   const app = new Hono();
 
   app.get('/', () => {
@@ -14,11 +15,11 @@ Deno.test('errorHandler() maps ValidationError to 400 with issues', async () => 
 
   const response = await app.request('/');
 
-  assertEquals(response.status, 400);
-  assertEquals(await response.json(), { error: 'Validation failed', issues: [{ message: 'Required' }] });
+  assert.deepEqual(response.status, 400);
+  assert.deepEqual(await response.json(), { error: 'Validation failed', issues: [{ message: 'Required' }] });
 });
 
-Deno.test('errorHandler() renders only message and a plain-key path, never the issue input', async () => {
+test('errorHandler() renders only message and a plain-key path, never the issue input', async () => {
   const app = new Hono();
 
   app.get('/', () => {
@@ -31,11 +32,11 @@ Deno.test('errorHandler() renders only message and a plain-key path, never the i
 
   const response = await app.request('/');
 
-  assertEquals(response.status, 400);
-  assertEquals(await response.json(), { error: 'Validation failed', issues: [{ message: 'Invalid length', path: ['password', 0] }] });
+  assert.deepEqual(response.status, 400);
+  assert.deepEqual(await response.json(), { error: 'Validation failed', issues: [{ message: 'Invalid length', path: ['password', 0] }] });
 });
 
-Deno.test('errorHandler() maps HttpError to its own status and details', async () => {
+test('errorHandler() maps HttpError to its own status and details', async () => {
   const app = new Hono();
 
   app.get('/', () => {
@@ -45,11 +46,11 @@ Deno.test('errorHandler() maps HttpError to its own status and details', async (
 
   const response = await app.request('/');
 
-  assertEquals(response.status, 404);
-  assertEquals(await response.json(), { error: 'Not found', details: { id: '42' } });
+  assert.deepEqual(response.status, 404);
+  assert.deepEqual(await response.json(), { error: 'Not found', details: { id: '42' } });
 });
 
-Deno.test('errorHandler() maps unknown errors to a generic 500', async () => {
+test('errorHandler() maps unknown errors to a generic 500', async () => {
   const app = new Hono();
 
   app.get('/', () => {
@@ -59,6 +60,6 @@ Deno.test('errorHandler() maps unknown errors to a generic 500', async () => {
 
   const response = await app.request('/');
 
-  assertEquals(response.status, 500);
-  assertEquals(await response.json(), { error: 'Internal Server Error' });
+  assert.deepEqual(response.status, 500);
+  assert.deepEqual(await response.json(), { error: 'Internal Server Error' });
 });

@@ -1,4 +1,5 @@
-import { assertEquals, assertExists } from '@std/assert';
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
 import type { Context } from 'hono';
 
 import { HttpError } from '../errors.ts';
@@ -43,16 +44,16 @@ class MethodGuardController {
 @Module({ controllers: [MethodGuardController] })
 class MethodGuardModule {}
 
-Deno.test('@UseGuard() on a method allows or denies based on canActivate()', async () => {
+test('@UseGuard() on a method allows or denies based on canActivate()', async () => {
   const app = assignModule(MethodGuardModule);
   app.onError(errorHandler());
 
   const allowedResponse = await app.request('/method-guard/allowed');
-  assertEquals(allowedResponse.status, 200);
+  assert.deepEqual(allowedResponse.status, 200);
 
   const deniedResponse = await app.request('/method-guard/denied');
-  assertEquals(deniedResponse.status, 403);
-  assertEquals(await deniedResponse.json(), { error: 'Forbidden' });
+  assert.deepEqual(deniedResponse.status, 403);
+  assert.deepEqual(await deniedResponse.json(), { error: 'Forbidden' });
 });
 
 @UseGuard(DenyGuard)
@@ -72,30 +73,30 @@ class ClassGuardController {
 @Module({ controllers: [ClassGuardController] })
 class ClassGuardModule {}
 
-Deno.test('@UseGuard() on a controller class applies to every route on it', async () => {
+test('@UseGuard() on a controller class applies to every route on it', async () => {
   const app = assignModule(ClassGuardModule);
   app.onError(errorHandler());
 
   const oneResponse = await app.request('/class-guard/one');
   const twoResponse = await app.request('/class-guard/two');
 
-  assertEquals(oneResponse.status, 403);
-  assertEquals(twoResponse.status, 403);
+  assert.deepEqual(oneResponse.status, 403);
+  assert.deepEqual(twoResponse.status, 403);
 });
 
-Deno.test('a controller-wide @UseGuard() does not run for requests that never match one of its routes', async () => {
+test('a controller-wide @UseGuard() does not run for requests that never match one of its routes', async () => {
   const app = assignModule(ClassGuardModule);
   app.onError(errorHandler());
 
   // No route is registered for this sub-path — must 404, not 403, and must
   // not leak that a guard exists here at all.
   const unmappedResponse = await app.request('/class-guard/does-not-exist');
-  assertEquals(unmappedResponse.status, 404);
+  assert.deepEqual(unmappedResponse.status, 404);
 
   // No OPTIONS handler is registered for this route — an unauthenticated
   // CORS preflight must not be denied by the guard.
   const preflightResponse = await app.request('/class-guard/one', { method: 'OPTIONS' });
-  assertEquals(preflightResponse.status, 404);
+  assert.deepEqual(preflightResponse.status, 404);
 });
 
 @UseGuard(AllowGuard)
@@ -116,15 +117,15 @@ class StackedGuardController {
 @Module({ controllers: [StackedGuardController] })
 class StackedGuardModule {}
 
-Deno.test('@UseGuard() stacks a class-level and a method-level guard — either one denying is enough to deny', async () => {
+test('@UseGuard() stacks a class-level and a method-level guard — either one denying is enough to deny', async () => {
   const app = assignModule(StackedGuardModule);
   app.onError(errorHandler());
 
   const blockedResponse = await app.request('/stacked-guard/blocked');
   const openResponse = await app.request('/stacked-guard/open');
 
-  assertEquals(blockedResponse.status, 403);
-  assertEquals(openResponse.status, 200);
+  assert.deepEqual(blockedResponse.status, 403);
+  assert.deepEqual(openResponse.status, 200);
 });
 
 @Injectable()
@@ -154,16 +155,16 @@ class RoleGuardController {
 @Module({ controllers: [RoleGuardController], providers: [PermissionService] })
 class RoleGuardModule {}
 
-Deno.test('UseGuard() resolves the guard through the request scope, so it can inject() module providers', async () => {
+test('UseGuard() resolves the guard through the request scope, so it can inject() module providers', async () => {
   const app = assignModule(RoleGuardModule);
   app.onError(errorHandler());
 
   const deniedResponse = await app.request('/role-guard/secret');
-  assertEquals(deniedResponse.status, 403);
+  assert.deepEqual(deniedResponse.status, 403);
 
   const allowedResponse = await app.request('/role-guard/secret', { headers: { 'x-role': 'admin' } });
-  assertEquals(allowedResponse.status, 200);
-  assertEquals(await allowedResponse.text(), 'top secret');
+  assert.deepEqual(allowedResponse.status, 200);
+  assert.deepEqual(await allowedResponse.text(), 'top secret');
 });
 
 class CustomDenyGuard implements Guard {
@@ -184,13 +185,13 @@ class CustomGuardController {
 @Module({ controllers: [CustomGuardController] })
 class CustomGuardModule {}
 
-Deno.test('a guard can throw its own HttpError instead of the default 403', async () => {
+test('a guard can throw its own HttpError instead of the default 403', async () => {
   const app = assignModule(CustomGuardModule);
   app.onError(errorHandler());
 
   const response = await app.request('/custom-guard/secure');
-  assertEquals(response.status, 401);
-  assertEquals(await response.json(), { error: 'Unauthorized', details: { reason: 'missing token' } });
+  assert.deepEqual(response.status, 401);
+  assert.deepEqual(await response.json(), { error: 'Unauthorized', details: { reason: 'missing token' } });
 });
 
 @Controller('bare-guard')
@@ -202,12 +203,12 @@ class BareGuardController {
   }
 }
 
-Deno.test('UseGuard() throws a clear error when the controller was not mounted via assignModule()', async () => {
+test('UseGuard() throws a clear error when the controller was not mounted via assignModule()', async () => {
   const app = mountController(new BareGuardController() as unknown as ControllerClass);
   const response = await app.request('/bare-guard');
 
-  assertExists(response);
-  assertEquals(response.status, 500);
+  assert.ok(response);
+  assert.deepEqual(response.status, 500);
 });
 
 @UseGuard(AllowGuard)
@@ -245,7 +246,7 @@ class GuardSiblingChildAModule {}
 @Module({ controllers: [GuardSiblingChildBController] })
 class GuardSiblingChildBModule {}
 
-Deno.test('class-level @UseGuard() does not leak between sibling subclasses of a shared base', async () => {
+test('class-level @UseGuard() does not leak between sibling subclasses of a shared base', async () => {
   const baseApp = assignModule(GuardSiblingBaseModule);
   const childAApp = assignModule(GuardSiblingChildAModule);
   const childBApp = assignModule(GuardSiblingChildBModule);
@@ -253,13 +254,13 @@ Deno.test('class-level @UseGuard() does not leak between sibling subclasses of a
   [baseApp, childAApp, childBApp].forEach((app) => app.onError(errorHandler()));
 
   const baseResponse = await baseApp.request('/base-path');
-  assertEquals(baseResponse.status, 200);
+  assert.deepEqual(baseResponse.status, 200);
 
   // Child A inherits AllowGuard from the base AND adds its own DenyGuard — denied.
   const childAResponse = await childAApp.request('/child-a-path');
-  assertEquals(childAResponse.status, 403);
+  assert.deepEqual(childAResponse.status, 403);
 
   // Child B only inherits the base's AllowGuard, never sees child A's own DenyGuard — allowed.
   const childBResponse = await childBApp.request('/child-b-path');
-  assertEquals(childBResponse.status, 200);
+  assert.deepEqual(childBResponse.status, 200);
 });

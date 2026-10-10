@@ -1,4 +1,5 @@
-import { assertEquals } from '@std/assert';
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
 
 import { ApiExcludeEndpoint, ApiOperation, ApiResponse, ApiTags } from '../decorators/openapi.decorator.ts';
 import { Controller } from '../decorators/controller.decorator.ts';
@@ -47,12 +48,12 @@ class WidgetController {
 @Module({ controllers: [WidgetController], routePrefix: 'api' })
 class WidgetModule {}
 
-Deno.test('buildOpenApiDocument() includes info and merges module routePrefix into paths', () => {
+test('buildOpenApiDocument() includes info and merges module routePrefix into paths', () => {
   const document = buildOpenApiDocument(WidgetModule, { info: { title: 'Test API', version: '1.0.0' } });
 
-  assertEquals(document.openapi, '3.1.0');
-  assertEquals(document.info, { title: 'Test API', version: '1.0.0' });
-  assertEquals(Object.keys(document.paths).sort(), [
+  assert.deepEqual(document.openapi, '3.1.0');
+  assert.deepEqual(document.info, { title: 'Test API', version: '1.0.0' });
+  assert.deepEqual(Object.keys(document.paths).sort(), [
     '/api/widgets/created',
     '/api/widgets/errors-only',
     '/api/widgets/list',
@@ -61,61 +62,61 @@ Deno.test('buildOpenApiDocument() includes info and merges module routePrefix in
   ]);
 });
 
-Deno.test('buildOpenApiDocument() maps tags, summary, deprecated, and stacked responses', () => {
+test('buildOpenApiDocument() maps tags, summary, deprecated, and stacked responses', () => {
   const document = buildOpenApiDocument(WidgetModule, { info: { title: 'Test API', version: '1.0.0' } });
   const operation = document.paths['/api/widgets/{id}'].get;
 
-  assertEquals(operation.tags, ['widgets']);
-  assertEquals(operation.summary, 'Get a widget');
-  assertEquals(operation.deprecated, true);
-  assertEquals(operation.responses, {
+  assert.deepEqual(operation.tags, ['widgets']);
+  assert.deepEqual(operation.summary, 'Get a widget');
+  assert.deepEqual(operation.deprecated, true);
+  assert.deepEqual(operation.responses, {
     '200': { description: 'The widget' },
     '404': { description: 'Not found' },
   });
-  assertEquals(operation.parameters, [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }]);
+  assert.deepEqual(operation.parameters, [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }]);
 });
 
-Deno.test('buildOpenApiDocument() synthesizes a default 200 response when no @ApiResponse() is used', () => {
+test('buildOpenApiDocument() synthesizes a default 200 response when no @ApiResponse() is used', () => {
   const document = buildOpenApiDocument(WidgetModule, { info: { title: 'Test API', version: '1.0.0' } });
   const operation = document.paths['/api/widgets/undocumented'].get;
 
-  assertEquals(operation.responses, { '200': { description: 'Successful response' } });
+  assert.deepEqual(operation.responses, { '200': { description: 'Successful response' } });
 });
 
-Deno.test('buildOpenApiDocument() keeps the default 200 response when only error responses are declared', () => {
+test('buildOpenApiDocument() keeps the default 200 response when only error responses are declared', () => {
   const document = buildOpenApiDocument(WidgetModule, { info: { title: 'Test API', version: '1.0.0' } });
   const operation = document.paths['/api/widgets/errors-only'].get;
 
-  assertEquals(operation.responses, {
+  assert.deepEqual(operation.responses, {
     '200': { description: 'Successful response' },
     '404': { description: 'Not found' },
   });
 });
 
-Deno.test('buildOpenApiDocument() emits only the declared responses when a 2xx is declared', () => {
+test('buildOpenApiDocument() emits only the declared responses when a 2xx is declared', () => {
   const document = buildOpenApiDocument(WidgetModule, { info: { title: 'Test API', version: '1.0.0' } });
   const operation = document.paths['/api/widgets/created'].post;
 
-  assertEquals(operation.responses, { '201': { description: 'Created' } });
+  assert.deepEqual(operation.responses, { '201': { description: 'Created' } });
 });
 
-Deno.test('buildOpenApiDocument() maps a plain query() resolver to a simple parameter', () => {
+test('buildOpenApiDocument() maps a plain query() resolver to a simple parameter', () => {
   const document = buildOpenApiDocument(WidgetModule, { info: { title: 'Test API', version: '1.0.0' } });
   const operation = document.paths['/api/widgets/list'].get;
 
-  assertEquals(operation.parameters, [{ name: 'search', in: 'query', schema: { type: 'string' } }]);
+  assert.deepEqual(operation.parameters, [{ name: 'search', in: 'query', schema: { type: 'string' } }]);
 });
 
-Deno.test('buildOpenApiDocument() excludes routes marked with @ApiExcludeEndpoint()', () => {
+test('buildOpenApiDocument() excludes routes marked with @ApiExcludeEndpoint()', () => {
   const document = buildOpenApiDocument(WidgetModule, { info: { title: 'Test API', version: '1.0.0' } });
 
-  assertEquals('/api/widgets/internal' in document.paths, false);
+  assert.deepEqual('/api/widgets/internal' in document.paths, false);
 });
 
-Deno.test('buildOpenApiDocument() skips @All() routes, which have no OpenAPI method equivalent', () => {
+test('buildOpenApiDocument() skips @All() routes, which have no OpenAPI method equivalent', () => {
   const document = buildOpenApiDocument(WidgetModule, { info: { title: 'Test API', version: '1.0.0' } });
 
-  assertEquals('/api/widgets/anything' in document.paths, false);
+  assert.deepEqual('/api/widgets/anything' in document.paths, false);
 });
 
 interface CreateWidgetBody {
@@ -134,35 +135,35 @@ class ValidatedController {
 @Module({ controllers: [ValidatedController] })
 class ValidatedModule {}
 
-Deno.test('buildOpenApiDocument() omits schema-backed request bodies/parameters without a schemaToJsonSchema converter', () => {
+test('buildOpenApiDocument() omits schema-backed request bodies/parameters without a schemaToJsonSchema converter', () => {
   const document = buildOpenApiDocument(ValidatedModule, { info: { title: 'Test API', version: '1.0.0' } });
   const createOperation = document.paths['/widgets/{id}'].post;
   const searchOperation = document.paths['/widgets/search'].get;
 
-  assertEquals(createOperation.requestBody, undefined);
-  assertEquals(searchOperation.parameters, undefined);
+  assert.deepEqual(createOperation.requestBody, undefined);
+  assert.deepEqual(searchOperation.parameters, undefined);
 });
 
-Deno.test('buildOpenApiDocument() converts validatedBody() into requestBody via schemaToJsonSchema', () => {
+test('buildOpenApiDocument() converts validatedBody() into requestBody via schemaToJsonSchema', () => {
   const bodySchema: JsonSchemaObject = { type: 'object', properties: { name: { type: 'string' } }, required: ['name'] };
   const document = buildOpenApiDocument(ValidatedModule, {
     info: { title: 'Test API', version: '1.0.0' },
     schemaToJsonSchema: () => bodySchema,
   });
 
-  assertEquals(document.paths['/widgets/{id}'].post.requestBody, {
+  assert.deepEqual(document.paths['/widgets/{id}'].post.requestBody, {
     content: { 'application/json': { schema: bodySchema } },
   });
 });
 
-Deno.test('buildOpenApiDocument() expands validatedQuery() object schema properties into individual query parameters', () => {
+test('buildOpenApiDocument() expands validatedQuery() object schema properties into individual query parameters', () => {
   const querySchema: JsonSchemaObject = { type: 'object', properties: { term: { type: 'string' } }, required: ['term'] };
   const document = buildOpenApiDocument(ValidatedModule, {
     info: { title: 'Test API', version: '1.0.0' },
     schemaToJsonSchema: () => querySchema,
   });
 
-  assertEquals(document.paths['/widgets/search'].get.parameters, [
+  assert.deepEqual(document.paths['/widgets/search'].get.parameters, [
     { name: 'term', in: 'query', required: true, schema: { type: 'string' } },
   ]);
 });
@@ -176,10 +177,10 @@ class HeaderController {
 @Module({ controllers: [HeaderController] })
 class HeaderModule {}
 
-Deno.test('buildOpenApiDocument() maps a plain headers() resolver to a header parameter', () => {
+test('buildOpenApiDocument() maps a plain headers() resolver to a header parameter', () => {
   const document = buildOpenApiDocument(HeaderModule, { info: { title: 'Test API', version: '1.0.0' } });
 
-  assertEquals(document.paths['/headers-widgets'].get.parameters, [{ name: 'x-token', in: 'header', schema: { type: 'string' } }]);
+  assert.deepEqual(document.paths['/headers-widgets'].get.parameters, [{ name: 'x-token', in: 'header', schema: { type: 'string' } }]);
 });
 
 @Controller('items')
@@ -191,14 +192,14 @@ class DedupParamController {
 @Module({ controllers: [DedupParamController] })
 class DedupParamModule {}
 
-Deno.test('buildOpenApiDocument() does not duplicate a path parameter declared both by the URL segment and validatedParam()', () => {
+test('buildOpenApiDocument() does not duplicate a path parameter declared both by the URL segment and validatedParam()', () => {
   const idSchema: JsonSchemaObject = { type: 'object', properties: { id: { type: 'number' } }, required: ['id'] };
   const document = buildOpenApiDocument(DedupParamModule, {
     info: { title: 'Test API', version: '1.0.0' },
     schemaToJsonSchema: () => idSchema,
   });
 
-  assertEquals(document.paths['/items/{id}'].get.parameters, [{ name: 'id', in: 'path', required: true, schema: { type: 'number' } }]);
+  assert.deepEqual(document.paths['/items/{id}'].get.parameters, [{ name: 'id', in: 'path', required: true, schema: { type: 'number' } }]);
 });
 
 @Controller()
@@ -218,11 +219,11 @@ class OverrideChildController extends OverrideBaseController {
 @Module({ controllers: [OverrideChildController] })
 class OverrideModule {}
 
-Deno.test('buildOpenApiDocument() attributes @ApiOperation() to the exact route it was declared on, even when an override maps to a different route under the same functionName', () => {
+test('buildOpenApiDocument() attributes @ApiOperation() to the exact route it was declared on, even when an override maps to a different route under the same functionName', () => {
   const document = buildOpenApiDocument(OverrideModule, { info: { title: 'Test API', version: '1.0.0' } });
 
-  assertEquals(document.paths['/base-path'].get.summary, 'base summary');
-  assertEquals(document.paths['/child-path'].post.summary, 'child summary');
+  assert.deepEqual(document.paths['/base-path'].get.summary, 'base summary');
+  assert.deepEqual(document.paths['/child-path'].post.summary, 'child summary');
 });
 
 @Controller('items')
@@ -234,11 +235,11 @@ class ConstrainedParamController {
 @Module({ controllers: [ConstrainedParamController] })
 class ConstrainedParamModule {}
 
-Deno.test('buildOpenApiDocument() handles a Hono path-param constraint like :id{[0-9]+}', () => {
+test('buildOpenApiDocument() handles a Hono path-param constraint like :id{[0-9]+}', () => {
   const document = buildOpenApiDocument(ConstrainedParamModule, { info: { title: 'Test API', version: '1.0.0' } });
 
-  assertEquals(Object.keys(document.paths), ['/items/{id}']);
-  assertEquals(document.paths['/items/{id}'].get.parameters, [{ name: 'id', in: 'path', required: true, schema: { type: 'string', pattern: '[0-9]+' } }]);
+  assert.deepEqual(Object.keys(document.paths), ['/items/{id}']);
+  assert.deepEqual(document.paths['/items/{id}'].get.parameters, [{ name: 'id', in: 'path', required: true, schema: { type: 'string', pattern: '[0-9]+' } }]);
 });
 
 @Controller('coded')
@@ -261,13 +262,13 @@ class HttpCodeOpenApiController {
 @Module({ controllers: [HttpCodeOpenApiController] })
 class HttpCodeOpenApiModule {}
 
-Deno.test('buildOpenApiDocument() uses the @HttpCode() status for the default success response', () => {
+test('buildOpenApiDocument() uses the @HttpCode() status for the default success response', () => {
   const document = buildOpenApiDocument(HttpCodeOpenApiModule, { info: { title: 'Test API', version: '1.0.0' } });
 
-  assertEquals(document.paths['/coded'].post.responses, {
+  assert.deepEqual(document.paths['/coded'].post.responses, {
     '201': { description: 'Successful response' },
     '409': { description: 'Conflict' },
   });
-  assertEquals(document.paths['/coded/{id}'].delete.responses, { '204': { description: 'Successful response' } });
-  assertEquals(document.paths['/coded/declared'].post.responses, { '200': { description: 'Declared' } });
+  assert.deepEqual(document.paths['/coded/{id}'].delete.responses, { '204': { description: 'Successful response' } });
+  assert.deepEqual(document.paths['/coded/declared'].post.responses, { '200': { description: 'Declared' } });
 });

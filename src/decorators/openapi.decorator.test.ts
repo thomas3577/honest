@@ -1,4 +1,5 @@
-import { assertEquals, assertExists, assertThrows } from '@std/assert';
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
 
 import { API_OPERATION_METADATA, API_RESPONSE_METADATA, API_TAGS_METADATA } from '../const.ts';
 import type { ApiOperationMetadata, ApiResponseMetadata } from '../types.ts';
@@ -26,9 +27,9 @@ class TaggedBeforeController {
   list() {}
 }
 
-Deno.test('ApiTags() is discoverable regardless of decoration order relative to Controller()', () => {
-  assertEquals(getMetadata<string[]>(API_TAGS_METADATA, TaggedAfterController.prototype), ['users', 'admin']);
-  assertEquals(getMetadata<string[]>(API_TAGS_METADATA, TaggedBeforeController.prototype), ['users']);
+test('ApiTags() is discoverable regardless of decoration order relative to Controller()', () => {
+  assert.deepEqual(getMetadata<string[]>(API_TAGS_METADATA, TaggedAfterController.prototype), ['users', 'admin']);
+  assert.deepEqual(getMetadata<string[]>(API_TAGS_METADATA, TaggedBeforeController.prototype), ['users']);
 });
 
 @Controller('items')
@@ -47,37 +48,37 @@ class OperationController {
   internal() {}
 }
 
-Deno.test('ApiOperation() records summary/description metadata per method', () => {
+test('ApiOperation() records summary/description metadata per method', () => {
   const metadata = getMetadata<ApiOperationMetadata[]>(API_OPERATION_METADATA, OperationController.prototype);
 
-  assertExists(metadata);
-  assertEquals(stripDeclarationId(metadata).find((entry) => entry.functionName === 'list'), {
+  assert.ok(metadata);
+  assert.deepEqual(stripDeclarationId(metadata).find((entry) => entry.functionName === 'list'), {
     functionName: 'list',
     summary: 'List items',
     description: 'Returns all items.',
   });
 });
 
-Deno.test('ApiResponse() is stackable, recording one entry per call', () => {
+test('ApiResponse() is stackable, recording one entry per call', () => {
   const metadata = getMetadata<ApiResponseMetadata[]>(API_RESPONSE_METADATA, OperationController.prototype);
 
-  assertExists(metadata);
+  assert.ok(metadata);
   const findResponses = metadata.filter((entry) => entry.functionName === 'find');
-  assertEquals(stripDeclarationId(findResponses), [
+  assert.deepEqual(stripDeclarationId(findResponses), [
     { functionName: 'find', status: 404, description: 'Not found' },
     { functionName: 'find', status: 200, description: 'OK' },
   ]);
   // Both responses were declared on the same @Get(':id') method, so they
   // share the same declarationId — this is what lets buildOpenApiDocument()
   // attribute both to that one route.
-  assertEquals(findResponses[0].declarationId, findResponses[1].declarationId);
+  assert.deepEqual(findResponses[0].declarationId, findResponses[1].declarationId);
 });
 
-Deno.test('ApiExcludeEndpoint() marks the operation entry as excluded', () => {
+test('ApiExcludeEndpoint() marks the operation entry as excluded', () => {
   const metadata = getMetadata<ApiOperationMetadata[]>(API_OPERATION_METADATA, OperationController.prototype);
 
-  assertExists(metadata);
-  assertEquals(stripDeclarationId(metadata).find((entry) => entry.functionName === 'internal'), { functionName: 'internal', excluded: true });
+  assert.ok(metadata);
+  assert.deepEqual(stripDeclarationId(metadata).find((entry) => entry.functionName === 'internal'), { functionName: 'internal', excluded: true });
 });
 
 @Controller()
@@ -101,20 +102,20 @@ class ApiSiblingChildBController extends ApiSiblingBaseController {
   override action() {}
 }
 
-Deno.test('ApiOperation() does not leak metadata between sibling subclasses of a shared base', () => {
+test('ApiOperation() does not leak metadata between sibling subclasses of a shared base', () => {
   const baseMetadata = getMetadata<ApiOperationMetadata[]>(API_OPERATION_METADATA, ApiSiblingBaseController.prototype);
   const childAMetadata = getMetadata<ApiOperationMetadata[]>(API_OPERATION_METADATA, ApiSiblingChildAController.prototype);
   const childBMetadata = getMetadata<ApiOperationMetadata[]>(API_OPERATION_METADATA, ApiSiblingChildBController.prototype);
 
-  assertExists(baseMetadata);
-  assertExists(childAMetadata);
-  assertExists(childBMetadata);
-  assertEquals(stripDeclarationId(baseMetadata), [{ functionName: 'action', summary: 'base' }]);
-  assertEquals(stripDeclarationId(childAMetadata), [
+  assert.ok(baseMetadata);
+  assert.ok(childAMetadata);
+  assert.ok(childBMetadata);
+  assert.deepEqual(stripDeclarationId(baseMetadata), [{ functionName: 'action', summary: 'base' }]);
+  assert.deepEqual(stripDeclarationId(childAMetadata), [
     { functionName: 'action', summary: 'base' },
     { functionName: 'action', summary: 'child-a' },
   ]);
-  assertEquals(stripDeclarationId(childBMetadata), [
+  assert.deepEqual(stripDeclarationId(childBMetadata), [
     { functionName: 'action', summary: 'base' },
     { functionName: 'action', summary: 'child-b' },
   ]);
@@ -122,40 +123,38 @@ Deno.test('ApiOperation() does not leak metadata between sibling subclasses of a
   // Same declaration-identity guarantee @ApiOperation() relies on: the
   // inherited entry matches the base's own declaration everywhere, while
   // each override's own entry is distinct from it and from its sibling's.
-  assertEquals(childAMetadata[0].declarationId, baseMetadata[0].declarationId);
-  assertEquals(childBMetadata[0].declarationId, baseMetadata[0].declarationId);
-  assertEquals(childAMetadata[1].declarationId === baseMetadata[0].declarationId, false);
-  assertEquals(childAMetadata[1].declarationId === childBMetadata[1].declarationId, false);
+  assert.deepEqual(childAMetadata[0].declarationId, baseMetadata[0].declarationId);
+  assert.deepEqual(childBMetadata[0].declarationId, baseMetadata[0].declarationId);
+  assert.deepEqual(childAMetadata[1].declarationId === baseMetadata[0].declarationId, false);
+  assert.deepEqual(childAMetadata[1].declarationId === childBMetadata[1].declarationId, false);
 });
 
-Deno.test('ApiOperation() throws when applied to a static method', () => {
-  assertThrows(
+test('ApiOperation() throws when applied to a static method', () => {
+  assert.throws(
     () => {
       class _Test {
         @ApiOperation({ summary: 'x' })
         static handler() {}
       }
     },
-    Error,
-    '@ApiOperation() can only be used on public instance methods.',
+    { message: '@ApiOperation() can only be used on public instance methods.' },
   );
 });
 
-Deno.test('ApiOperation() throws when applied to a private method', () => {
-  assertThrows(
+test('ApiOperation() throws when applied to a private method', () => {
+  assert.throws(
     () => {
       class _Test {
         @ApiOperation({ summary: 'x' })
         #handler() {}
       }
     },
-    Error,
-    '@ApiOperation() can only be used on public instance methods.',
+    { message: '@ApiOperation() can only be used on public instance methods.' },
   );
 });
 
-Deno.test('ApiOperation() throws when applied to a getter', () => {
-  assertThrows(
+test('ApiOperation() throws when applied to a getter', () => {
+  assert.throws(
     () => {
       // deno-lint-ignore no-explicit-any -- deliberately misapplying a method decorator to a getter to exercise the runtime guard.
       const apiOperationOnGetter: any = ApiOperation({ summary: 'x' });
@@ -167,52 +166,48 @@ Deno.test('ApiOperation() throws when applied to a getter', () => {
         }
       }
     },
-    Error,
-    '@ApiOperation() can only be used on public instance methods.',
+    { message: '@ApiOperation() can only be used on public instance methods.' },
   );
 });
 
-Deno.test('ApiOperation() throws when applied to a symbol-named method', () => {
-  assertThrows(
+test('ApiOperation() throws when applied to a symbol-named method', () => {
+  assert.throws(
     () => {
       class _Test {
         @ApiOperation({ summary: 'x' })
         [Symbol.iterator]() {}
       }
     },
-    Error,
-    '@ApiOperation() can only be used on public instance methods.',
+    { message: '@ApiOperation() can only be used on public instance methods.' },
   );
 });
 
-Deno.test('ApiResponse() throws when applied to a static method', () => {
-  assertThrows(
+test('ApiResponse() throws when applied to a static method', () => {
+  assert.throws(
     () => {
       class _Test {
         @ApiResponse({ status: 200 })
         static handler() {}
       }
     },
-    Error,
-    '@ApiResponse() can only be used on public instance methods.',
+    { message: '@ApiResponse() can only be used on public instance methods.' },
   );
 });
 
-Deno.test('ApiResponse() throws when applied to a private method', () => {
-  assertThrows(
+test('ApiResponse() throws when applied to a private method', () => {
+  assert.throws(
     () => {
       class _Test {
         @ApiResponse({ status: 200 })
         #handler() {}
       }
     },
-    Error,
-    '@ApiResponse() can only be used on public instance methods.',
+    { message: '@ApiResponse() can only be used on public instance methods.' },
   );
 });
 
-Deno.test('ApiResponse() throws when applied to a getter', () => {
-  assertThrows(
+test('ApiResponse() throws when applied to a getter', () => {
+  assert.throws(
     () => {
       // deno-lint-ignore no-explicit-any -- deliberately misapplying a method decorator to a getter to exercise the runtime guard.
       const apiResponseOnGetter: any = ApiResponse({ status: 200 });
@@ -224,52 +219,48 @@ Deno.test('ApiResponse() throws when applied to a getter', () => {
         }
       }
     },
-    Error,
-    '@ApiResponse() can only be used on public instance methods.',
+    { message: '@ApiResponse() can only be used on public instance methods.' },
   );
 });
 
-Deno.test('ApiResponse() throws when applied to a symbol-named method', () => {
-  assertThrows(
+test('ApiResponse() throws when applied to a symbol-named method', () => {
+  assert.throws(
     () => {
       class _Test {
         @ApiResponse({ status: 200 })
         [Symbol.iterator]() {}
       }
     },
-    Error,
-    '@ApiResponse() can only be used on public instance methods.',
+    { message: '@ApiResponse() can only be used on public instance methods.' },
   );
 });
 
-Deno.test('ApiExcludeEndpoint() throws when applied to a static method', () => {
-  assertThrows(
+test('ApiExcludeEndpoint() throws when applied to a static method', () => {
+  assert.throws(
     () => {
       class _Test {
         @ApiExcludeEndpoint()
         static handler() {}
       }
     },
-    Error,
-    '@ApiExcludeEndpoint() can only be used on public instance methods.',
+    { message: '@ApiExcludeEndpoint() can only be used on public instance methods.' },
   );
 });
 
-Deno.test('ApiExcludeEndpoint() throws when applied to a private method', () => {
-  assertThrows(
+test('ApiExcludeEndpoint() throws when applied to a private method', () => {
+  assert.throws(
     () => {
       class _Test {
         @ApiExcludeEndpoint()
         #handler() {}
       }
     },
-    Error,
-    '@ApiExcludeEndpoint() can only be used on public instance methods.',
+    { message: '@ApiExcludeEndpoint() can only be used on public instance methods.' },
   );
 });
 
-Deno.test('ApiExcludeEndpoint() throws when applied to a getter', () => {
-  assertThrows(
+test('ApiExcludeEndpoint() throws when applied to a getter', () => {
+  assert.throws(
     () => {
       // deno-lint-ignore no-explicit-any -- deliberately misapplying a method decorator to a getter to exercise the runtime guard.
       const apiExcludeEndpointOnGetter: any = ApiExcludeEndpoint();
@@ -281,20 +272,18 @@ Deno.test('ApiExcludeEndpoint() throws when applied to a getter', () => {
         }
       }
     },
-    Error,
-    '@ApiExcludeEndpoint() can only be used on public instance methods.',
+    { message: '@ApiExcludeEndpoint() can only be used on public instance methods.' },
   );
 });
 
-Deno.test('ApiExcludeEndpoint() throws when applied to a symbol-named method', () => {
-  assertThrows(
+test('ApiExcludeEndpoint() throws when applied to a symbol-named method', () => {
+  assert.throws(
     () => {
       class _Test {
         @ApiExcludeEndpoint()
         [Symbol.iterator]() {}
       }
     },
-    Error,
-    '@ApiExcludeEndpoint() can only be used on public instance methods.',
+    { message: '@ApiExcludeEndpoint() can only be used on public instance methods.' },
   );
 });

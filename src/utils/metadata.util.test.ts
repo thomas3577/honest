@@ -1,4 +1,5 @@
-import { assertEquals, assertStrictEquals } from '@std/assert';
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
 
 import { createMetadataDecorator, defineMetadata, getMetadata, getOwnMetadata } from './metadata.util.ts';
 import './reflect-shim.ts';
@@ -25,7 +26,7 @@ type ReflectMetadataApi = typeof Reflect & {
 
 const reflectApi = Reflect as ReflectMetadataApi;
 
-Deno.test('defineMetadata() and getOwnMetadata() store class metadata on the exact target', () => {
+test('defineMetadata() and getOwnMetadata() store class metadata on the exact target', () => {
   const classKey = Symbol('class-key');
 
   class MetadataBase {
@@ -38,11 +39,11 @@ Deno.test('defineMetadata() and getOwnMetadata() store class metadata on the exa
 
   defineMetadata(classKey, 'base-value', MetadataBase.prototype);
 
-  assertEquals(getOwnMetadata(classKey, MetadataBase.prototype), 'base-value');
-  assertEquals(getOwnMetadata(classKey, MetadataChild.prototype), undefined);
+  assert.deepEqual(getOwnMetadata(classKey, MetadataBase.prototype), 'base-value');
+  assert.deepEqual(getOwnMetadata(classKey, MetadataChild.prototype), undefined);
 });
 
-Deno.test('defineMetadata() and getOwnMetadata() store member metadata on the exact target', () => {
+test('defineMetadata() and getOwnMetadata() store member metadata on the exact target', () => {
   const memberKey = Symbol('member-key');
 
   class MetadataBase {
@@ -55,11 +56,11 @@ Deno.test('defineMetadata() and getOwnMetadata() store member metadata on the ex
 
   defineMetadata(memberKey, 'member-value', MetadataBase.prototype, 'method');
 
-  assertEquals(getOwnMetadata(memberKey, MetadataBase.prototype, 'method'), 'member-value');
-  assertEquals(getOwnMetadata(memberKey, MetadataChild.prototype, 'method'), undefined);
+  assert.deepEqual(getOwnMetadata(memberKey, MetadataBase.prototype, 'method'), 'member-value');
+  assert.deepEqual(getOwnMetadata(memberKey, MetadataChild.prototype, 'method'), undefined);
 });
 
-Deno.test('getMetadata() resolves class and member metadata through the prototype chain', () => {
+test('getMetadata() resolves class and member metadata through the prototype chain', () => {
   const classKey = Symbol('class-key');
   const memberKey = Symbol('member-key');
 
@@ -74,11 +75,11 @@ Deno.test('getMetadata() resolves class and member metadata through the prototyp
   defineMetadata(classKey, 'inherited-class', MetadataBase.prototype);
   defineMetadata(memberKey, 'inherited-member', MetadataBase.prototype, 'method');
 
-  assertEquals(getMetadata(classKey, MetadataChild.prototype), 'inherited-class');
-  assertEquals(getMetadata(memberKey, MetadataChild.prototype, 'method'), 'inherited-member');
+  assert.deepEqual(getMetadata(classKey, MetadataChild.prototype), 'inherited-class');
+  assert.deepEqual(getMetadata(memberKey, MetadataChild.prototype, 'method'), 'inherited-member');
 });
 
-Deno.test('createMetadataDecorator() writes metadata for class members', () => {
+test('createMetadataDecorator() writes metadata for class members', () => {
   const decoratorKey = Symbol('decorator-key');
 
   class MetadataBase {
@@ -89,10 +90,10 @@ Deno.test('createMetadataDecorator() writes metadata for class members', () => {
 
   decorator(MetadataBase.prototype, 'method');
 
-  assertEquals(getMetadata(decoratorKey, MetadataBase.prototype, 'method'), 'decorated-value');
+  assert.deepEqual(getMetadata(decoratorKey, MetadataBase.prototype, 'method'), 'decorated-value');
 });
 
-Deno.test('reflect shim exposes metadata helpers backed by the internal store', () => {
+test('reflect shim exposes metadata helpers backed by the internal store', () => {
   const shimKey = Symbol('shim-key');
 
   class MetadataBase {
@@ -106,13 +107,13 @@ Deno.test('reflect shim exposes metadata helpers backed by the internal store', 
   reflectApi.defineMetadata?.(shimKey, 'shim-class', MetadataBase.prototype);
   reflectApi.defineMetadata?.(shimKey, 'shim-member', MetadataBase.prototype, 'method');
 
-  assertEquals(reflectApi.getOwnMetadata?.(shimKey, MetadataBase.prototype), 'shim-class');
-  assertEquals(reflectApi.getMetadata?.(shimKey, MetadataChild.prototype), 'shim-class');
-  assertEquals(reflectApi.getOwnMetadata?.(shimKey, MetadataBase.prototype, 'method'), 'shim-member');
-  assertEquals(reflectApi.getMetadata?.(shimKey, MetadataChild.prototype, 'method'), 'shim-member');
+  assert.deepEqual(reflectApi.getOwnMetadata?.(shimKey, MetadataBase.prototype), 'shim-class');
+  assert.deepEqual(reflectApi.getMetadata?.(shimKey, MetadataChild.prototype), 'shim-class');
+  assert.deepEqual(reflectApi.getOwnMetadata?.(shimKey, MetadataBase.prototype, 'method'), 'shim-member');
+  assert.deepEqual(reflectApi.getMetadata?.(shimKey, MetadataChild.prototype, 'method'), 'shim-member');
 });
 
-Deno.test('reflect shim metadata() decorator writes through to the shared metadata store', () => {
+test('reflect shim metadata() decorator writes through to the shared metadata store', () => {
   const shimKey = Symbol('shim-key');
 
   class MetadataChild {
@@ -121,14 +122,14 @@ Deno.test('reflect shim metadata() decorator writes through to the shared metada
 
   const shimDecorator = reflectApi.metadata?.(shimKey, 'shim-decorator');
 
-  assertStrictEquals(typeof shimDecorator, 'function');
+  assert.equal(typeof shimDecorator, 'function');
 
   shimDecorator?.(MetadataChild.prototype, 'method');
 
-  assertEquals(getMetadata(shimKey, MetadataChild.prototype, 'method'), 'shim-decorator');
+  assert.deepEqual(getMetadata(shimKey, MetadataChild.prototype, 'method'), 'shim-decorator');
 });
 
-Deno.test('reflect shim metadata() supports standard decorators on methods and classes', () => {
+test('reflect shim metadata() supports standard decorators on methods and classes', () => {
   const classKey = Symbol('class-key');
   const methodKey = Symbol('method-key');
   const metadataDecorator = reflectApi.metadata as NonNullable<ReflectMetadataApi['metadata']>;
@@ -143,9 +144,9 @@ Deno.test('reflect shim metadata() supports standard decorators on methods and c
     override method() {}
   }
 
-  assertEquals(getOwnMetadata(classKey, MetadataBase), 'class-metadata');
-  assertEquals(getMetadata(classKey, MetadataChild), 'class-metadata');
-  assertEquals(getOwnMetadata(methodKey, MetadataBase.prototype, 'method'), 'method-metadata');
-  assertEquals(getOwnMetadata(methodKey, MetadataChild.prototype, 'method'), undefined);
-  assertEquals(getMetadata(methodKey, MetadataChild.prototype, 'method'), 'method-metadata');
+  assert.deepEqual(getOwnMetadata(classKey, MetadataBase), 'class-metadata');
+  assert.deepEqual(getMetadata(classKey, MetadataChild), 'class-metadata');
+  assert.deepEqual(getOwnMetadata(methodKey, MetadataBase.prototype, 'method'), 'method-metadata');
+  assert.deepEqual(getOwnMetadata(methodKey, MetadataChild.prototype, 'method'), undefined);
+  assert.deepEqual(getMetadata(methodKey, MetadataChild.prototype, 'method'), 'method-metadata');
 });
