@@ -10,7 +10,7 @@ Honest is a decorator-driven application toolkit for [Hono](https://hono.dev) th
 
 Honest is the same idea as [oakest](https://github.com/thomas3577/oakest) — a decorator-driven, NestJS-like toolkit — but built on Hono instead of [Oak](https://jsr.io/@oak/oak). See [Differences from oakest](#differences-from-oakest) at the end if you know oakest already.
 
-**Compatibility:** requires Hono `^4.13.10`. Honest's own `deno.json` declares this as a version range, not an exact pin, so Deno can resolve it to the same Hono install your own project already uses wherever possible — keep your project on a single resolved Hono version (on Node.js and Bun, install Hono from JSR as shown in [Installation](#installation)). Mixing two different Hono versions in one project can produce confusing `Context is not assignable to Context`-style TypeScript errors, since Hono's classes use private fields that make two separately-resolved copies of the same version nominally incompatible.
+**Compatibility:** requires Hono `^4.13.12`. Honest's own `deno.json` declares this as a version range, not an exact pin, so Deno can resolve it to the same Hono install your own project already uses wherever possible — keep your project on a single resolved Hono version (on Node.js and Bun, install Hono from JSR as shown in [Installation](#installation)). Mixing two different Hono versions in one project can produce confusing `Context is not assignable to Context`-style TypeScript errors, since Hono's classes use private fields that make two separately-resolved copies of the same version nominally incompatible.
 
 ## Contents
 
@@ -687,14 +687,13 @@ A test double works as a provider the same way a real one does — nothing test-
 
 ### Production Hardening
 
-None of the following needs any honest-specific code — `assignModule()` returns a plain `Hono` instance, so Hono's own middleware (and the wider Hono ecosystem) applies directly, before you mount your module. Honest re-exports only its own API from `@dx/honest`; import Hono submodules like `hono/cors`, `hono/streaming`, or `hono/deno` straight from `hono`, same as in a plain Hono app. Each submodule needs its own entry in your `deno.json` `imports` — a single trailing-slash entry (`"hono/": "jsr:@hono/hono@^4.13.10/"`) does not resolve JSR subpaths, so list the ones you use explicitly:
+None of the following needs any honest-specific code — `assignModule()` returns a plain `Hono` instance, so Hono's own middleware (and the wider Hono ecosystem) applies directly, before you mount your module. Honest re-exports only its own API from `@dx/honest`; import Hono submodules like `hono/cors` or `hono/secure-headers` straight from `hono`, same as in a plain Hono app. On Node.js and Bun they resolve from the installed package. On Deno, each submodule needs its own entry in your `deno.json` `imports` — a single trailing-slash entry (`"hono/": "jsr:@hono/hono@^4.13.12/"`) does not resolve JSR subpaths, so list the ones you use explicitly:
 
 ```jsonc
 "imports": {
-  "hono": "jsr:@hono/hono@^4.13.10",
-  "hono/cors": "jsr:@hono/hono@^4.13.10/cors",
-  "hono/streaming": "jsr:@hono/hono@^4.13.10/streaming",
-  "hono/deno": "jsr:@hono/hono@^4.13.10/deno"
+  "hono": "jsr:@hono/hono@^4.13.12",
+  "hono/cors": "jsr:@hono/hono@^4.13.12/cors",
+  "hono/secure-headers": "jsr:@hono/hono@^4.13.12/secure-headers"
 }
 ```
 
