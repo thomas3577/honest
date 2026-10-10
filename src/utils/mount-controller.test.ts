@@ -1,4 +1,4 @@
-import { assertExists } from '@std/assert';
+import assert from 'node:assert/strict';
 import { Hono } from 'hono';
 
 import { errorHandler } from './error-handler.util.ts';
@@ -13,8 +13,8 @@ import type { ControllerClass } from '../types.ts';
 export function mountController(controller: ControllerClass, routePrefix?: string): Hono {
   controller.init(routePrefix);
 
-  assertExists(controller.path);
-  assertExists(controller.route);
+  assert.ok(controller.path);
+  assert.ok(controller.route);
 
   const app = new Hono();
 

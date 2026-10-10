@@ -3,11 +3,8 @@
   "specifiers": {
     "jsr:@hono/hono@^4.13.12": "4.13.12",
     "jsr:@needle-di/core@1.2.1": "1.2.1",
-    "jsr:@std/assert@*": "1.0.19",
-    "jsr:@std/assert@1.0.19": "1.0.19",
     "jsr:@std/fmt@^1.0.5": "1.0.10",
     "jsr:@std/fs@^1.0.11": "1.0.24",
-    "jsr:@std/internal@^1.0.12": "1.0.14",
     "jsr:@std/io@~0.225.2": "0.225.3",
     "jsr:@std/log@0.224.14": "0.224.14",
     "npm:@scalar/hono-api-reference@0.11.16": "0.11.16"
@@ -19,20 +16,11 @@
     "@needle-di/core@1.2.1": {
       "integrity": "fa6491594d66754f7793abba982a2ddba23eea9129ccdc7f6f66efcad1f56eb2"
     },
-    "@std/assert@1.0.19": {
-      "integrity": "eaada96ee120cb980bc47e040f82814d786fe8162ecc53c91d8df60b8755991e",
-      "dependencies": [
-        "jsr:@std/internal"
-      ]
-    },
     "@std/fmt@1.0.10": {
       "integrity": "90dfba288802ac6de82fb31d0917eb9e4450b9925b954d5e51fc29ac07419db5"
     },
     "@std/fs@1.0.24": {
       "integrity": "f3061b45b81673a2bece689da041df32d174be064c89eb6397fb5718d3fb7877"
-    },
-    "@std/internal@1.0.14": {
-      "integrity": "291516b3d4c35024d6ffbc0a9df5bf4c64116e05b50012cf846710152d2ffdf7"
     },
     "@std/io@0.225.3": {
       "integrity": "27b07b591384d12d7b568f39e61dff966b8230559122df1e9fd11cc068f7ddd1"
@@ -104,8 +92,15 @@
     "dependencies": [
       "jsr:@hono/hono@^4.13.12",
       "jsr:@needle-di/core@1.2.1",
-      "jsr:@std/assert@1.0.19",
       "jsr:@std/log@0.224.14"
-    ]
+    ],
+    "packageJson": {
+      "dependencies": [
+        "npm:@jsr/std__log@0.224.14",
+        "npm:@needle-di/core@1.2.1",
+        "npm:hono@4.13.12",
+        "npm:tsx@4.23.15"
+      ]
+    }
   }
 }

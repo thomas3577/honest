@@ -1,4 +1,5 @@
-import { assertEquals, assertExists, assertThrows } from '@std/assert';
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
 
 import { METHOD_METADATA } from '../const.ts';
 import type { ActionMetadata } from '../types.ts';
@@ -31,11 +32,11 @@ class HttpMethodController {
   fallback() {}
 }
 
-Deno.test('HTTP method decorators register method metadata for each decorated handler', () => {
+test('HTTP method decorators register method metadata for each decorated handler', () => {
   const metadata = getMetadata<ActionMetadata[]>(METHOD_METADATA, HttpMethodController.prototype);
 
-  assertExists(metadata);
-  assertEquals(stripDeclarationId(metadata), [
+  assert.ok(metadata);
+  assert.deepEqual(stripDeclarationId(metadata), [
     { path: 'list', method: 'get', functionName: 'list' },
     { path: 'create', method: 'post', functionName: 'create' },
     { path: 'replace', method: 'put', functionName: 'replace' },
@@ -51,11 +52,11 @@ class ResolverMethodController {
   create(_id: string, _body: { name: string }, _dryRun: string | undefined) {}
 }
 
-Deno.test('HTTP method decorators store optional args resolvers', () => {
+test('HTTP method decorators store optional args resolvers', () => {
   const metadata = getMetadata<ActionMetadata[]>(METHOD_METADATA, ResolverMethodController.prototype);
 
-  assertExists(metadata);
-  assertEquals(stripDeclarationId(metadata), [
+  assert.ok(metadata);
+  assert.deepEqual(stripDeclarationId(metadata), [
     {
       path: ':id',
       method: 'post',
@@ -75,11 +76,11 @@ class ArgsOnlyOverloadController {
   find(_id: string) {}
 }
 
-Deno.test('HTTP method decorators support the args-only overload (no explicit path)', () => {
+test('HTTP method decorators support the args-only overload (no explicit path)', () => {
   const metadata = getMetadata<ActionMetadata[]>(METHOD_METADATA, ArgsOnlyOverloadController.prototype);
 
-  assertExists(metadata);
-  assertEquals(stripDeclarationId(metadata), [
+  assert.ok(metadata);
+  assert.deepEqual(stripDeclarationId(metadata), [
     { path: '', method: 'get', functionName: 'find', args: [{ paramType: 6, data: 'id' }] },
   ]);
 });
@@ -102,7 +103,7 @@ class SiblingChildBController extends SiblingBaseController {
   override action() {}
 }
 
-Deno.test('HTTP method decorators do not leak route metadata between sibling subclasses of a shared base', () => {
+test('HTTP method decorators do not leak route metadata between sibling subclasses of a shared base', () => {
   const baseMetadata = getMetadata<ActionMetadata[]>(METHOD_METADATA, SiblingBaseController.prototype);
   const childAMetadata = getMetadata<ActionMetadata[]>(METHOD_METADATA, SiblingChildAController.prototype);
   const childBMetadata = getMetadata<ActionMetadata[]>(METHOD_METADATA, SiblingChildBController.prototype);
@@ -110,15 +111,15 @@ Deno.test('HTTP method decorators do not leak route metadata between sibling sub
   // Each subclass clones and appends onto its inherited metadata (matching the
   // Controller() middleware-inheritance semantics), but must never see its
   // sibling's own entries.
-  assertExists(baseMetadata);
-  assertExists(childAMetadata);
-  assertExists(childBMetadata);
-  assertEquals(stripDeclarationId(baseMetadata), [{ path: 'base-path', method: 'get', functionName: 'action' }]);
-  assertEquals(stripDeclarationId(childAMetadata), [
+  assert.ok(baseMetadata);
+  assert.ok(childAMetadata);
+  assert.ok(childBMetadata);
+  assert.deepEqual(stripDeclarationId(baseMetadata), [{ path: 'base-path', method: 'get', functionName: 'action' }]);
+  assert.deepEqual(stripDeclarationId(childAMetadata), [
     { path: 'base-path', method: 'get', functionName: 'action' },
     { path: 'child-a-path', method: 'get', functionName: 'action' },
   ]);
-  assertEquals(stripDeclarationId(childBMetadata), [
+  assert.deepEqual(stripDeclarationId(childBMetadata), [
     { path: 'base-path', method: 'get', functionName: 'action' },
     { path: 'child-b-path', method: 'get', functionName: 'action' },
   ]);
@@ -127,41 +128,39 @@ Deno.test('HTTP method decorators do not leak route metadata between sibling sub
   // appears, but each subclass's own override is a distinct declaration —
   // this identity is what buildOpenApiDocument() relies on to tell an
   // inherited route apart from an overriding one that shares a functionName.
-  assertEquals(childAMetadata[0].declarationId, baseMetadata[0].declarationId);
-  assertEquals(childBMetadata[0].declarationId, baseMetadata[0].declarationId);
-  assertEquals(childAMetadata[1].declarationId === baseMetadata[0].declarationId, false);
-  assertEquals(childBMetadata[1].declarationId === baseMetadata[0].declarationId, false);
-  assertEquals(childAMetadata[1].declarationId === childBMetadata[1].declarationId, false);
+  assert.deepEqual(childAMetadata[0].declarationId, baseMetadata[0].declarationId);
+  assert.deepEqual(childBMetadata[0].declarationId, baseMetadata[0].declarationId);
+  assert.deepEqual(childAMetadata[1].declarationId === baseMetadata[0].declarationId, false);
+  assert.deepEqual(childBMetadata[1].declarationId === baseMetadata[0].declarationId, false);
+  assert.deepEqual(childAMetadata[1].declarationId === childBMetadata[1].declarationId, false);
 });
 
-Deno.test('Get() throws when applied to a static method', () => {
-  assertThrows(
+test('Get() throws when applied to a static method', () => {
+  assert.throws(
     () => {
       class _Test {
         @Get('path')
         static handler() {}
       }
     },
-    Error,
-    '@GET() can only be used on public instance methods.',
+    { message: '@GET() can only be used on public instance methods.' },
   );
 });
 
-Deno.test('Get() throws when applied to a private method', () => {
-  assertThrows(
+test('Get() throws when applied to a private method', () => {
+  assert.throws(
     () => {
       class _Test {
         @Get('path')
         #handler() {}
       }
     },
-    Error,
-    '@GET() can only be used on public instance methods.',
+    { message: '@GET() can only be used on public instance methods.' },
   );
 });
 
-Deno.test('Get() throws when applied to a getter', () => {
-  assertThrows(
+test('Get() throws when applied to a getter', () => {
+  assert.throws(
     () => {
       // deno-lint-ignore no-explicit-any -- deliberately misapplying a method decorator to a getter to exercise the runtime guard.
       const getOnGetter: any = Get('path');
@@ -173,13 +172,12 @@ Deno.test('Get() throws when applied to a getter', () => {
         }
       }
     },
-    Error,
-    '@GET() can only be used on public instance methods.',
+    { message: '@GET() can only be used on public instance methods.' },
   );
 });
 
-Deno.test('Get() throws on an Oak-style wildcard path instead of silently accepting it as a literal name', () => {
-  assertThrows(
+test('Get() throws on an Oak-style wildcard path instead of silently accepting it as a literal name', () => {
+  assert.throws(
     () => {
       class _Test {
         @Get(':site*')
@@ -191,8 +189,8 @@ Deno.test('Get() throws on an Oak-style wildcard path instead of silently accept
   );
 });
 
-Deno.test('Get() throws on an Oak-style one-or-more wildcard path', () => {
-  assertThrows(
+test('Get() throws on an Oak-style one-or-more wildcard path', () => {
+  assert.throws(
     () => {
       class _Test {
         @Get('files/:path+')
@@ -204,22 +202,21 @@ Deno.test('Get() throws on an Oak-style one-or-more wildcard path', () => {
   );
 });
 
-Deno.test("Get() accepts Hono's own wildcard syntax", () => {
+test("Get() accepts Hono's own wildcard syntax", () => {
   class _Test {
     @Get(':site{.*}')
     handler() {}
   }
 });
 
-Deno.test('Get() throws when applied to a symbol-named method', () => {
-  assertThrows(
+test('Get() throws when applied to a symbol-named method', () => {
+  assert.throws(
     () => {
       class _Test {
         @Get('path')
         [Symbol.iterator]() {}
       }
     },
-    Error,
-    '@GET() only supports string-named methods.',
+    { message: '@GET() only supports string-named methods.' },
   );
 });

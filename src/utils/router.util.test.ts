@@ -1,4 +1,5 @@
-import { assertEquals, assertExists, assertRejects, assertThrows } from '@std/assert';
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
 import { Hono } from 'hono';
 
 import { Controller } from '../decorators/controller.decorator.ts';
@@ -13,7 +14,7 @@ const handleModuleRequest = async (module: ClassConstructor, path: string) => {
   const app = assignModule(module);
   const response = await app.request(path);
 
-  assertExists(response);
+  assert.ok(response);
 
   return response;
 };
@@ -29,11 +30,11 @@ class BasicController {
 @Module({ controllers: [BasicController] })
 class BasicModule {}
 
-Deno.test('assignModule() exposes controller routes', async () => {
+test('assignModule() exposes controller routes', async () => {
   const response = await handleModuleRequest(BasicModule, '/health/ping');
 
-  assertEquals(response.status, 200);
-  assertEquals(await response.text(), 'pong');
+  assert.deepEqual(response.status, 200);
+  assert.deepEqual(await response.text(), 'pong');
 });
 
 @Controller('leaf')
@@ -53,11 +54,11 @@ class MidModule {}
 @Module({ modules: [MidModule], routePrefix: 'root-prefix/' })
 class NestedRootModule {}
 
-Deno.test('assignModule() composes routePrefix values across nested modules', async () => {
+test('assignModule() composes routePrefix values across nested modules', async () => {
   const response = await handleModuleRequest(NestedRootModule, '/root-prefix/mid-prefix/leaf-prefix/leaf/ping');
 
-  assertEquals(response.status, 200);
-  assertEquals(await response.text(), 'nested');
+  assert.deepEqual(response.status, 200);
+  assert.deepEqual(await response.text(), 'nested');
 });
 
 @Controller('repeat')
@@ -71,14 +72,14 @@ class RepeatedController {
 @Module({ controllers: [RepeatedController], routePrefix: 'repeat-prefix' })
 class RepeatedModule {}
 
-Deno.test('assignModule() does not leak controller deduplication across separate router builds', async () => {
+test('assignModule() does not leak controller deduplication across separate router builds', async () => {
   const firstResponse = await handleModuleRequest(RepeatedModule, '/repeat-prefix/repeat/ping');
   const secondResponse = await handleModuleRequest(RepeatedModule, '/repeat-prefix/repeat/ping');
 
-  assertEquals(firstResponse.status, 200);
-  assertEquals(await firstResponse.text(), 'repeat');
-  assertEquals(secondResponse.status, 200);
-  assertEquals(await secondResponse.text(), 'repeat');
+  assert.deepEqual(firstResponse.status, 200);
+  assert.deepEqual(await firstResponse.text(), 'repeat');
+  assert.deepEqual(secondResponse.status, 200);
+  assert.deepEqual(await secondResponse.text(), 'repeat');
 });
 
 const FirstDuplicateController = (() => {
@@ -108,14 +109,14 @@ const SecondDuplicateController = (() => {
 @Module({ controllers: [FirstDuplicateController, SecondDuplicateController] })
 class DuplicateNameModule {}
 
-Deno.test('assignModule() registers distinct controllers even when they share the same class name', async () => {
+test('assignModule() registers distinct controllers even when they share the same class name', async () => {
   const firstResponse = await handleModuleRequest(DuplicateNameModule, '/first-duplicate/ping');
   const secondResponse = await handleModuleRequest(DuplicateNameModule, '/second-duplicate/ping');
 
-  assertEquals(firstResponse.status, 200);
-  assertEquals(await firstResponse.text(), 'first');
-  assertEquals(secondResponse.status, 200);
-  assertEquals(await secondResponse.text(), 'second');
+  assert.deepEqual(firstResponse.status, 200);
+  assert.deepEqual(await firstResponse.text(), 'first');
+  assert.deepEqual(secondResponse.status, 200);
+  assert.deepEqual(await secondResponse.text(), 'second');
 });
 
 @Injectable()
@@ -149,29 +150,29 @@ class ProviderChildModule {}
 @Module({ controllers: [ParentProviderController], providers: [SharedProvider], modules: [ProviderChildModule] })
 class ProviderRootModule {}
 
-Deno.test('assignModule() aggregates deduplicated providers across nested modules', async () => {
+test('assignModule() aggregates deduplicated providers across nested modules', async () => {
   const app = assignModule(ProviderRootModule);
 
   const parentResponse = await app.request('/parent/id');
   const childResponse = await app.request('/child/id');
 
-  assertExists(parentResponse);
-  assertExists(childResponse);
+  assert.ok(parentResponse);
+  assert.ok(childResponse);
 
   const parentId = await parentResponse.text();
   const childId = await childResponse.text();
 
-  assertEquals(parentResponse.status, 200);
-  assertEquals(childResponse.status, 200);
-  assertEquals(parentId, childId);
+  assert.deepEqual(parentResponse.status, 200);
+  assert.deepEqual(childResponse.status, 200);
+  assert.deepEqual(parentId, childId);
 });
 
 class MissingModuleMetadata {}
 
-Deno.test('assignModule() throws a clear error when @Module() metadata is missing', () => {
-  const error = assertThrows(() => assignModule(MissingModuleMetadata as unknown as ClassConstructor)) as Error;
-
-  assertEquals(error.message, 'Module MissingModuleMetadata is missing @Module() metadata.');
+test('assignModule() throws a clear error when @Module() metadata is missing', () => {
+  assert.throws(() => assignModule(MissingModuleMetadata as unknown as ClassConstructor), {
+    message: 'Module MissingModuleMetadata is missing @Module() metadata.',
+  });
 });
 
 @Injectable()
@@ -196,20 +197,20 @@ class ScopedController {
 @Module({ controllers: [ScopedController], providers: [ScopeSharedProvider] })
 class ScopedModule {}
 
-Deno.test('scoped() resolves a fresh instance per request, while shared module singletons stay stable', async () => {
+test('scoped() resolves a fresh instance per request, while shared module singletons stay stable', async () => {
   const app = assignModule(ScopedModule);
 
   const firstResponse = await app.request('/widgets/current');
   const secondResponse = await app.request('/widgets/current');
 
-  assertEquals(firstResponse.status, 200);
-  assertEquals(secondResponse.status, 200);
+  assert.deepEqual(firstResponse.status, 200);
+  assert.deepEqual(secondResponse.status, 200);
 
   const first = await firstResponse.json();
   const second = await secondResponse.json();
 
-  assertEquals(first.widgetId === second.widgetId, false);
-  assertEquals(first.sharedId, second.sharedId);
+  assert.deepEqual(first.widgetId === second.widgetId, false);
+  assert.deepEqual(first.sharedId, second.sharedId);
 });
 
 const lifecycleEvents: string[] = [];
@@ -253,25 +254,25 @@ class LifecycleController implements OnModuleInit, OnModuleDestroy {
 @Module({ controllers: [LifecycleController], providers: [LifecycleProvider, UnusedLazyProvider] })
 class LifecycleModule {}
 
-Deno.test('initModule()/destroyModule() init a lifecycle provider before a controller that depends on it, and tear down in reverse, leaving providers without hooks lazily unconstructed', async () => {
+test('initModule()/destroyModule() init a lifecycle provider before a controller that depends on it, and tear down in reverse, leaving providers without hooks lazily unconstructed', async () => {
   lifecycleEvents.length = 0;
 
   const app = assignModule(LifecycleModule);
 
   // Nothing runs just from assignModule() — hooks are opt-in, run only once explicitly awaited.
-  assertEquals(lifecycleEvents, []);
+  assert.equal(lifecycleEvents.length, 0);
 
   await initModule(app);
   // LifecycleController's constructor injects LifecycleProvider — the provider's own
   // onModuleInit() (e.g. opening a DB connection) must have already run by the time the
   // controller's onModuleInit() runs, or the controller would observe a not-yet-initialized dependency.
-  assertEquals(lifecycleEvents, ['LifecycleProvider:init', 'LifecycleController:init']);
+  assert.deepEqual(lifecycleEvents, ['LifecycleProvider:init', 'LifecycleController:init']);
 
   await destroyModule(app);
-  assertEquals(lifecycleEvents, ['LifecycleProvider:init', 'LifecycleController:init', 'LifecycleController:destroy', 'LifecycleProvider:destroy']);
+  assert.deepEqual(lifecycleEvents, ['LifecycleProvider:init', 'LifecycleController:init', 'LifecycleController:destroy', 'LifecycleProvider:destroy']);
 
   // UnusedLazyProvider implements neither hook and nothing injects it — it must never be constructed.
-  assertEquals(lifecycleEvents.includes('UnusedLazyProvider:constructed'), false);
+  assert.deepEqual(lifecycleEvents.includes('UnusedLazyProvider:constructed'), false);
 });
 
 @Injectable()
@@ -294,10 +295,10 @@ class ThrowingInitController {
 @Module({ controllers: [ThrowingInitController], providers: [ThrowingInitProvider] })
 class ThrowingInitModule {}
 
-Deno.test('initModule() propagates an error thrown by a hook', async () => {
+test('initModule() propagates an error thrown by a hook', async () => {
   const app = assignModule(ThrowingInitModule);
 
-  await assertRejects(() => initModule(app), Error, 'boom-init');
+  await assert.rejects(() => initModule(app), { message: 'boom-init' });
 });
 
 const asyncControllerState = { initialized: false, destroyed: false };
@@ -323,14 +324,14 @@ class AsyncLifecycleController implements OnModuleInit, OnModuleDestroy {
 @Module({ controllers: [AsyncLifecycleController] })
 class AsyncLifecycleModule {}
 
-Deno.test('initModule()/destroyModule() await async hooks on a controller, without any request being sent', async () => {
+test('initModule()/destroyModule() await async hooks on a controller, without any request being sent', async () => {
   const app = assignModule(AsyncLifecycleModule);
 
   await initModule(app);
-  assertEquals(asyncControllerState, { initialized: true, destroyed: false });
+  assert.deepEqual(asyncControllerState, { initialized: true, destroyed: false });
 
   await destroyModule(app);
-  assertEquals(asyncControllerState, { initialized: true, destroyed: true });
+  assert.deepEqual(asyncControllerState, { initialized: true, destroyed: true });
 });
 
 @Controller('throwing-controller')
@@ -349,22 +350,22 @@ class ThrowingInitAsyncController implements OnModuleInit {
 @Module({ controllers: [ThrowingInitAsyncController] })
 class ThrowingInitAsyncControllerModule {}
 
-Deno.test('initModule() propagates an error thrown by an async controller hook', async () => {
+test('initModule() propagates an error thrown by an async controller hook', async () => {
   const app = assignModule(ThrowingInitAsyncControllerModule);
 
-  await assertRejects(() => initModule(app), Error, 'boom-controller-init');
-  assertEquals(isModuleReady(app), false);
+  await assert.rejects(() => initModule(app), { message: 'boom-controller-init' });
+  assert.deepEqual(isModuleReady(app), false);
 });
 
-Deno.test('initModule()/destroyModule()/isModuleReady()/healthCheck() throw a clear error when given a Hono instance not returned by assignModule()', async () => {
+test('initModule()/destroyModule()/isModuleReady()/healthCheck() throw a clear error when given a Hono instance not returned by assignModule()', async () => {
   const app = new Hono();
   const message = 'initModule()/destroyModule()/isModuleReady()/healthCheck() must be called with the exact Hono instance returned by assignModule().';
 
-  await assertRejects(() => initModule(app), Error, message);
-  await assertRejects(() => destroyModule(app), Error, message);
-  assertThrows(() => isModuleReady(app), Error, message);
+  await assert.rejects(() => initModule(app), { message });
+  await assert.rejects(() => destroyModule(app), { message });
+  assert.throws(() => isModuleReady(app), { message });
   // getModuleLifecycle() throws before the handler ever touches its Context argument.
-  assertThrows(() => healthCheck(app)(undefined as never), Error, message);
+  assert.throws(() => healthCheck(app)(undefined as never), { message });
 });
 
 @Controller('ready-check')
@@ -378,37 +379,37 @@ class ReadyCheckController {
 @Module({ controllers: [ReadyCheckController] })
 class ReadyCheckModule {}
 
-Deno.test('healthCheck() responds 503 before initModule(), 200 after, and 503 again once destroyModule() starts', async () => {
+test('healthCheck() responds 503 before initModule(), 200 after, and 503 again once destroyModule() starts', async () => {
   const honestApp = assignModule(ReadyCheckModule);
   const testApp = new Hono();
   testApp.get('/health', healthCheck(honestApp));
 
   const beforeResponse = await testApp.request('/health');
-  assertEquals(beforeResponse.status, 503);
-  assertEquals(await beforeResponse.json(), { status: 'unavailable' });
+  assert.deepEqual(beforeResponse.status, 503);
+  assert.deepEqual(await beforeResponse.json(), { status: 'unavailable' });
 
   await initModule(honestApp);
 
   const afterInitResponse = await testApp.request('/health');
-  assertEquals(afterInitResponse.status, 200);
-  assertEquals(await afterInitResponse.json(), { status: 'ok' });
+  assert.deepEqual(afterInitResponse.status, 200);
+  assert.deepEqual(await afterInitResponse.json(), { status: 'ok' });
 
   await destroyModule(honestApp);
 
   const afterDestroyResponse = await testApp.request('/health');
-  assertEquals(afterDestroyResponse.status, 503);
+  assert.deepEqual(afterDestroyResponse.status, 503);
 });
 
-Deno.test('isModuleReady() mirrors initModule()/destroyModule() directly', async () => {
+test('isModuleReady() mirrors initModule()/destroyModule() directly', async () => {
   const app = assignModule(ReadyCheckModule);
 
-  assertEquals(isModuleReady(app), false);
+  assert.deepEqual(isModuleReady(app), false);
 
   await initModule(app);
-  assertEquals(isModuleReady(app), true);
+  assert.deepEqual(isModuleReady(app), true);
 
   await destroyModule(app);
-  assertEquals(isModuleReady(app), false);
+  assert.deepEqual(isModuleReady(app), false);
 });
 
 @Injectable()
@@ -431,9 +432,9 @@ class ThrowingReadyController {
 @Module({ controllers: [ThrowingReadyController], providers: [ThrowingReadyProvider] })
 class ThrowingReadyModule {}
 
-Deno.test('isModuleReady() stays false when initModule() throws', async () => {
+test('isModuleReady() stays false when initModule() throws', async () => {
   const app = assignModule(ThrowingReadyModule);
 
-  await assertRejects(() => initModule(app));
-  assertEquals(isModuleReady(app), false);
+  await assert.rejects(() => initModule(app));
+  assert.deepEqual(isModuleReady(app), false);
 });

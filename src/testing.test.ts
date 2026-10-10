@@ -1,4 +1,5 @@
-import { assertEquals, assertExists } from '@std/assert';
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
 
 import { Controller } from './decorators/controller.decorator.ts';
 import { Get } from './decorators/http-methods.decorator.ts';
@@ -35,18 +36,18 @@ class GreetController {
   }
 }
 
-Deno.test('createTestApp() mounts controllers and resolves dependencies like assignModule()', async () => {
+test('createTestApp() mounts controllers and resolves dependencies like assignModule()', async () => {
   const app = createTestApp({ controllers: [GreetController], providers: [RealService] });
   const response = await app.request('/greet');
 
-  assertExists(response);
-  assertEquals(response.status, 200);
-  assertEquals(await response.text(), 'real');
+  assert.ok(response);
+  assert.deepEqual(response.status, 200);
+  assert.deepEqual(await response.text(), 'real');
 });
 
-Deno.test('createTestApp() lets a test-double provider stand in for the real one via the same implementing token', async () => {
+test('createTestApp() lets a test-double provider stand in for the real one via the same implementing token', async () => {
   const app = createTestApp({ controllers: [GreetController], providers: [MockService] });
   const response = await app.request('/greet');
 
-  assertEquals(await response.text(), 'mock');
+  assert.deepEqual(await response.text(), 'mock');
 });

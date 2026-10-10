@@ -2,20 +2,22 @@
 
 [![JSR Version](https://jsr.io/badges/@dx/honest)](https://jsr.io/@dx/honest)
 [![JSR Score](https://jsr.io/badges/@dx/honest/score)](https://jsr.io/@dx/honest/score)
-[![ci](https://github.com/thomas3577/honest/actions/workflows/deno.yml/badge.svg)](https://github.com/thomas3577/honest/actions/workflows/deno.yml)
+[![ci](https://github.com/thomas3577/honest/actions/workflows/ci.yml/badge.svg)](https://github.com/thomas3577/honest/actions/workflows/ci.yml)
 
 > ⚠️ **EXPERIMENTAL**: This library is in early development and highly experimental. APIs may change without notice. Not recommended for production use.
 
-Honest is a decorator-driven application toolkit for Deno's [Hono](https://jsr.io/@hono/hono). It provides controllers, modules, explicit dependency injection, middleware decorators, and route argument resolvers in a small API surface built around standard decorators.
+Honest is a decorator-driven application toolkit for [Hono](https://hono.dev) that runs on Deno, Node.js, Bun and Cloudflare Workers. It provides controllers, modules, explicit dependency injection, middleware decorators, and route argument resolvers in a small API surface built around standard decorators.
 
 Honest is the same idea as [oakest](https://github.com/thomas3577/oakest) — a decorator-driven, NestJS-like toolkit — but built on Hono instead of [Oak](https://jsr.io/@oak/oak). See [Differences from oakest](#differences-from-oakest) at the end if you know oakest already.
 
-**Compatibility:** requires Hono `^4.13.10`. Honest's own `deno.json` declares this as a version range, not an exact pin, so Deno can resolve it to the same Hono install your own project already uses wherever possible — keep your project on a single resolved Hono version. Mixing two different Hono versions in one project can produce confusing `Context is not assignable to Context`-style TypeScript errors, since Hono's classes use private fields that make two separately-resolved copies of the same version nominally incompatible.
+**Compatibility:** requires Hono `^4.13.10`. Honest's own `deno.json` declares this as a version range, not an exact pin, so Deno can resolve it to the same Hono install your own project already uses wherever possible — keep your project on a single resolved Hono version (on Node.js and Bun, install Hono from JSR as shown in [Installation](#installation)). Mixing two different Hono versions in one project can produce confusing `Context is not assignable to Context`-style TypeScript errors, since Hono's classes use private fields that make two separately-resolved copies of the same version nominally incompatible.
 
 ## Contents
 
 - [Highlights](#highlights)
+- [Installation](#installation)
 - [Quick Start](#quick-start)
+- [Running](#running)
 - [API Overview](#api-overview)
   - [Modules](#modules)
   - [Controllers](#controllers)
@@ -50,6 +52,21 @@ Honest is the same idea as [oakest](https://github.com/thomas3577/oakest) — a 
 - **Lifecycle Hooks**: Implement `OnModuleInit`/`OnModuleDestroy` on a controller or provider to run setup/teardown around the rest of your app, plus a ready-made `healthCheck()` route handler for readiness probes.
 - **Config**: `Config(schema)` validates a config source (env vars by default) against the same Standard Schema interface as request validation, exposing a typed, validated `.value`.
 - **Testing Helper**: `createTestApp()` (via `@dx/honest/testing`) skips the module-class boilerplate for tests, while still exercising the real DI/routing pipeline.
+
+## Installation
+
+Honest is published on [JSR](https://jsr.io/@dx/honest). Supported runtimes — the CI runs the full test suite on each of them:
+
+| Runtime            | Install                                                            |
+| :----------------- | :----------------------------------------------------------------- |
+| Deno               | `deno add jsr:@dx/honest`                                          |
+| Node.js (>= 22)    | `npx jsr add @dx/honest`, then `npm i hono@npm:@jsr/hono__hono`    |
+| Bun                | `bunx jsr add @dx/honest`, then `bun add hono@npm:@jsr/hono__hono` |
+| Cloudflare Workers | as for Node.js                                                     |
+
+The examples import Hono as `hono`. On Deno, map it in your `deno.json` `imports` (`"hono": "jsr:@hono/hono@^4.13.12"`). On Node.js and Bun, install Hono from JSR under the name `hono` as shown above rather than the npm `hono` package: Honest's npm build depends on the JSR copy, and mixing the two produces `Context is not assignable to Context` type errors.
+
+Honest uses standard (TC39) decorators. Deno, Bun and Wrangler (Workers) run them directly. Node.js's built-in type stripping cannot (decorators are not erasable syntax), so run TypeScript through [tsx](https://tsx.is) (`npx tsx main.ts`) or compile with `tsc` (`target` ES2022 or later, without `experimentalDecorators`).
 
 ## Quick Start
 
@@ -102,10 +119,31 @@ app.route('/', assignModule(AppModule));
 Deno.serve(app.fetch);
 ```
 
-Run your app and the following endpoints will be available:
+Start it — see [Running](#running) for Node.js, Bun and Workers — and the following endpoints will be available:
 
 - `/api/v1/util/user-agent`
 - `/api/v1/util/multiply?f1=2&f2=4`
+
+## Running
+
+`assignModule()` returns a plain Hono app, so start it the way Hono does on each runtime — Honest has no server adapter of its own:
+
+```typescript
+// Deno: deno run --allow-net --allow-env main.ts
+Deno.serve(app.fetch);
+
+// Bun: bun run main.ts
+export default app;
+
+// Node.js: npx tsx main.ts (after npm i @hono/node-server)
+import { serve } from '@hono/node-server';
+serve({ fetch: app.fetch, port: 3000 });
+
+// Cloudflare Workers: npx wrangler dev (with "main": "main.ts" in wrangler.jsonc)
+export default app;
+```
+
+For a graceful shutdown on Deno, Node.js and Bun, use `process` (see [Lifecycle Hooks](#lifecycle-hooks)); Workers have no shutdown signal. `nodejs_compat` is not required on Workers — pass config bindings to [`Config()`](#config) explicitly instead.
 
 ## API Overview
 
@@ -191,23 +229,23 @@ export class SampleController {
 
 Available resolvers:
 
-| name                       | result                                                                        |
-| :------------------------- | :---------------------------------------------------------------------------- |
-| `req()`                    | `c.req` (the Hono request)                                                    |
-| `res()`                    | alias for `ctx()` (Hono has no separate response object)                      |
-| `next()`                   | Hono `next` handler                                                           |
-| `query(key?)`              | `URLSearchParams` or a single query value                                     |
-| `param(key?)`              | route params object or a single route param                                   |
-| `body(key?)`               | parsed JSON body or a single body property                                    |
-| `headers(name?)`           | all headers as an object or a single header value                             |
-| `ip(options?)`             | client IP (Deno only, via `hono/deno`'s `getConnInfo`; `''` if unknown)       |
-| `ctx()`                    | the full Hono `Context`                                                       |
-| `custom(handler, data?)`   | custom async/sync value resolver, typed from the handler return value         |
-| `scoped(Provider)`         | a request-scoped instance of `Provider` — see [Request Scope](#request-scope) |
-| `validatedBody(schema)`    | the JSON body, validated against a schema — see [Validation](#validation)     |
-| `validatedQuery(schema)`   | the query string, validated against a schema — see [Validation](#validation)  |
-| `validatedParam(schema)`   | the route params, validated against a schema — see [Validation](#validation)  |
-| `validatedHeaders(schema)` | the headers, validated against a schema — see [Validation](#validation)       |
+| name                       | result                                                                                   |
+| :------------------------- | :--------------------------------------------------------------------------------------- |
+| `req()`                    | `c.req` (the Hono request)                                                               |
+| `res()`                    | alias for `ctx()` (Hono has no separate response object)                                 |
+| `next()`                   | Hono `next` handler                                                                      |
+| `query(key?)`              | `URLSearchParams` or a single query value                                                |
+| `param(key?)`              | route params object or a single route param                                              |
+| `body(key?)`               | parsed JSON body or a single body property                                               |
+| `headers(name?)`           | all headers as an object or a single header value                                        |
+| `ip(options?)`             | client IP from the runtime's connection (`cf-connecting-ip` on Workers; `''` if unknown) |
+| `ctx()`                    | the full Hono `Context`                                                                  |
+| `custom(handler, data?)`   | custom async/sync value resolver, typed from the handler return value                    |
+| `scoped(Provider)`         | a request-scoped instance of `Provider` — see [Request Scope](#request-scope)            |
+| `validatedBody(schema)`    | the JSON body, validated against a schema — see [Validation](#validation)                |
+| `validatedQuery(schema)`   | the query string, validated against a schema — see [Validation](#validation)             |
+| `validatedParam(schema)`   | the route params, validated against a schema — see [Validation](#validation)             |
+| `validatedHeaders(schema)` | the headers, validated against a schema — see [Validation](#validation)                  |
 
 Notes on resolver arguments:
 
@@ -278,7 +316,7 @@ import { MockUserService, UserService } from './sample.service.ts';
 @Module({
   controllers: [UsersController],
   providers: [
-    Deno.env.get('DENO_ENV') === 'production' ? UserService : MockUserService,
+    process.env.NODE_ENV === 'production' ? UserService : MockUserService,
   ],
 })
 export class SampleModule {}
@@ -290,7 +328,7 @@ Dependency injection notes:
 - Providers still need to be registered in your module's `providers` array.
 - `@Injectable({ implementing: TOKEN })` can still be used to bind string or symbol tokens and resolve them with `inject<T>(TOKEN)`.
 - `isSingleton: false` is no longer supported in this Needle-based mode.
-- `experimentalDecorators` is not needed in `deno.json`.
+- Honest uses standard decorators — do not enable `experimentalDecorators` in `deno.json` or `tsconfig.json`.
 - Constructor `inject(...)` always resolves against long-lived singletons, built once when the app starts. For a value that must be fresh per request instead, use the `scoped()` resolver — see [Request Scope](#request-scope).
 
 ### Custom Middleware Decorators
@@ -398,7 +436,7 @@ export class UsersController {
 
 ### Config
 
-`Config(schema, source?)` validates a config source — by default `Deno.env.toObject()` — against a Standard Schema, the same interface [Validation](#validation) uses. Extend it, don't decorate with it — TypeScript can't propagate a decorator's return type to the decorated class's own type, so `.value` would need a cast at every call site; a normal `extends` is fully typed with none:
+`Config(schema, source?)` validates a config source — by default `process.env` — against a Standard Schema, the same interface [Validation](#validation) uses. Extend it, don't decorate with it — TypeScript can't propagate a decorator's return type to the decorated class's own type, so `.value` would need a cast at every call site; a normal `extends` is fully typed with none:
 
 ```typescript
 import { Config, Controller, Get, inject } from '@dx/honest';
@@ -514,9 +552,10 @@ app.route('/', honestApp);
 await initModule(honestApp); // await before serving traffic
 Deno.serve(app.fetch);
 
-Deno.addSignalListener('SIGINT', async () => {
+// Deno, Node.js and Bun all provide `process`
+process.on('SIGINT', async () => {
   await destroyModule(honestApp); // not wired automatically — call it from your own shutdown handling
-  Deno.exit(0);
+  process.exit(0);
 });
 ```
 
@@ -627,19 +666,22 @@ That's a plain `npm:` specifier, not an entry in honest's own `imports` — Scal
 `createTestApp(options)`, imported from `@dx/honest/testing` (a separate export path, so it never ships as part of the main entry point), is sugar over `@Module(options)` + `assignModule()` — it skips declaring a named module class per test while still exercising the real DI/routing/request-scope pipeline:
 
 ```typescript
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
 import { createTestApp } from '@dx/honest/testing';
-import { assertEquals } from '@std/assert';
 
 import { UsersController } from './users.controller.ts';
 import { MockUserService } from './mock-user.service.ts';
 
-Deno.test('GET /users returns the mocked users', async () => {
+test('GET /users returns the mocked users', async () => {
   const app = createTestApp({ controllers: [UsersController], providers: [MockUserService] });
   const response = await app.request('/users');
 
-  assertEquals(response.status, 200);
+  assert.equal(response.status, 200);
 });
 ```
+
+`node:test` runs on every supported runtime (`deno test`, `npx tsx --test`, `bun test`); any other test runner works the same way.
 
 A test double works as a provider the same way a real one does — nothing test-specific is required of it beyond being a normal class matching whatever token your controller/provider injects (see [Providers](#providers) for `implementing` tokens if you need to substitute an implementation without changing what's injected).
 
@@ -693,7 +735,7 @@ Honest mirrors oakest's decorator API almost 1:1, but Hono's request-handling mo
 
   Only `undefined` means "no result" — `null` is valid, serializable JSON and is sent as such.
 
-- **`ip()` requires Deno's connection info.** Hono has no built-in client IP like Oak's `request.ip`. Honest's `ip()` resolver lazily loads Hono's Deno adapter (`getConnInfo` from `hono/deno`, only when `ip()` is actually used) and resolves to `''` when no real connection is available (for example, when calling routes in tests via `app.request()` instead of a real `Deno.serve`).
+- **`ip()` reads the runtime's connection info.** Hono has no built-in client IP like Oak's `request.ip`. Honest's `ip()` resolver reads it from what the server passes to Hono (`Deno.serve`, `Bun.serve`, `@hono/node-server`), uses `cf-connecting-ip` on Cloudflare Workers, and resolves to `''` when no real connection is available (for example, when calling routes in tests via `app.request()`).
 - **Middleware short-circuits by returning a `Response`, not by mutating-then-returning.** Oak middleware denied a request by mutating `context.response` and returning `void`. Hono middleware denies a request by `return`ing a `Response` directly instead of calling `next()` — see [Custom Middleware Decorators](#custom-middleware-decorators) above.
 - **Errors fall back to Hono's default `onError` behavior unless you install `errorHandler()`.** See [Error Handling](#error-handling) above.
 

@@ -97,7 +97,7 @@ const getModuleLifecycle = (app: Hono): ModuleLifecycle => {
  * const honestApp = assignModule(AppModule);
  * app.route('/', honestApp);
  * await initModule(honestApp);
- * Deno.serve(app.fetch);
+ * Deno.serve(app.fetch); // or Bun.serve(app), serve(app) from @hono/node-server, ...
  * ```
  */
 export async function initModule(app: Hono): Promise<void> {
@@ -119,9 +119,10 @@ export async function initModule(app: Hono): Promise<void> {
  * any signal automatically — call it from your own shutdown handling:
  *
  * ```ts
- * Deno.addSignalListener('SIGINT', async () => {
+ * // Deno, Node.js and Bun all provide `process`; Workers have no shutdown signal.
+ * process.on('SIGINT', async () => {
  *   await destroyModule(honestApp);
- *   Deno.exit(0);
+ *   process.exit(0);
  * });
  * ```
  */

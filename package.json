@@ -1,0 +1,15 @@
+{
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "tsx --test \"src/**/*.test.ts\""
+  },
+  "dependencies": {
+    "@needle-di/core": "1.2.1",
+    "@std/log": "npm:@jsr/std__log@0.224.14",
+    "hono": "4.13.12"
+  },
+  "devDependencies": {
+    "tsx": "4.23.15"
+  }
+}

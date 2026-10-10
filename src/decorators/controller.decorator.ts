@@ -2,6 +2,7 @@ import '../utils/reflect-shim.ts';
 
 import { Hono } from 'hono';
 import type { Context } from 'hono';
+import { getRuntimeKey } from 'hono/adapter';
 import * as log from '@std/log';
 
 import { RouteParamTypes } from '../enums.ts';
@@ -250,15 +251,7 @@ async function getContextData(args: RouteArgResolver, c: Context, next: Next): P
         }
       }
 
-      try {
-        const { getConnInfo } = await import('hono/deno');
-
-        return getConnInfo(c).remote.address ?? '';
-      } catch (error) {
-        log.debug(`ip() resolver could not determine a connection address: ${error}`);
-
-        return '';
-      }
+      return getConnectionAddress(c);
     }
     case RouteParamTypes.CUSTOM: {
       return await args.handler!(c, data);
@@ -267,4 +260,31 @@ async function getContextData(args: RouteArgResolver, c: Context, next: Next): P
       return;
     }
   }
+}
+
+type ServerEnv = {
+  // Deno.serve(app.fetch) passes its ServeHandlerInfo as the env.
+  remoteAddr?: { hostname?: string };
+  // Bun.serve() passes its Server as the env (or as env.server).
+  requestIP?: (request: Request) => { address: string } | null;
+  server?: ServerEnv;
+  // @hono/node-server passes the Node request as env.incoming.
+  incoming?: { socket?: { remoteAddress?: string } };
+};
+
+/**
+ * Reads the connection address from what the runtime's server passed to
+ * Hono as `c.env`, falling back to `''` (e.g. for `app.request()` in tests).
+ * Workers have no socket; Cloudflare sets `cf-connecting-ip` itself, so that
+ * header is trusted only there.
+ */
+function getConnectionAddress(c: Context): string {
+  if (getRuntimeKey() === 'workerd') {
+    return c.req.header('cf-connecting-ip') ?? '';
+  }
+
+  const env = c.env as ServerEnv | undefined;
+  const bunServer = env?.server ?? env;
+
+  return env?.remoteAddr?.hostname ?? bunServer?.requestIP?.(c.req.raw)?.address ?? env?.incoming?.socket?.remoteAddress ?? '';
 }

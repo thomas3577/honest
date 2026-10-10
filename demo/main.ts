@@ -1,3 +1,4 @@
+import process from 'node:process';
 import { Hono } from 'hono';
 // Demo-only dependency: not in deno.json's imports on purpose, so the
 // published package carries zero trace of it — see the Scalar section in
@@ -23,9 +24,9 @@ app.get('/health', healthCheck(honestApp));
 
 await initModule(honestApp);
 
-Deno.addSignalListener('SIGINT', async () => {
+process.on('SIGINT', async () => {
   await destroyModule(honestApp);
-  Deno.exit(0);
+  process.exit(0);
 });
 
 Deno.serve({ port: 8000 }, app.fetch);
