@@ -31,6 +31,7 @@ Honest is the same idea as [oakest](https://github.com/thomas3577/oakest) — a 
   - [Request Scope](#request-scope)
   - [Guards](#guards)
   - [Lifecycle Hooks](#lifecycle-hooks)
+  - [Resolving providers outside the module](#resolving-providers-outside-the-module)
   - [Error Handling](#error-handling)
   - [OpenAPI Documentation](#openapi-documentation)
   - [Testing](#testing)
@@ -574,6 +575,21 @@ await initModule(honestApp);
 ```
 
 Need a different response shape (uptime, version, dependency checks)? Call `isModuleReady(app)` directly inside your own handler instead of using `healthCheck()`.
+
+### Resolving providers outside the module
+
+`resolve(app, token)` returns the module's singleton for `token`, so plain Hono middleware on the outer app can use a provider. The token is a provider class or an `implementing` token, the same tokens `inject()` accepts. `app` must be the exact instance `assignModule()` (or `createTestApp()`) returned:
+
+```typescript
+import { assignModule, resolve } from '@dx/honest';
+
+const honest = assignModule(AppModule);
+const store = resolve<Store>(honest, STORE);
+app.use(adminActivity(store));
+app.route('/', honest);
+```
+
+It returns the same instance controllers get injected, never a new or request-scoped one. It works before `initModule()` and runs no lifecycle hooks. An unknown token throws an error naming it.
 
 ### Error Handling
 

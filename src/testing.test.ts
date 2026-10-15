@@ -5,6 +5,7 @@ import { Controller } from './decorators/controller.decorator.ts';
 import { Get } from './decorators/http-methods.decorator.ts';
 import { inject, Injectable } from './decorators/injectable.ts';
 import { createTestApp } from './testing.ts';
+import { resolve } from './utils/router.util.ts';
 
 interface Greeter {
   greet(): string;
@@ -50,4 +51,10 @@ test('createTestApp() lets a test-double provider stand in for the real one via 
   const response = await app.request('/greet');
 
   assert.deepEqual(await response.text(), 'mock');
+});
+
+test('resolve() on a createTestApp() app returns the test-double provider', () => {
+  const app = createTestApp({ controllers: [GreetController], providers: [MockService] });
+
+  assert.ok(resolve<Greeter>(app, GREETER) instanceof MockService);
 });

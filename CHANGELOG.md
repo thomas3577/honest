@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.0] - 2026-10-15
+
+### Added
+
+- `resolve(app, token)` returns a module singleton (class or `implementing` token) for use outside the module, e.g. in Hono middleware on the outer app. Works with `createTestApp()` and before `initModule()`.
+
 ## [0.2.0-alpha.1] - 2026-10-10
 
 ### Added
