@@ -1,4 +1,4 @@
-import { Container, inject as needleInject } from '@needle-di/core';
+import { Container, inject as needleInject, type Token } from '@needle-di/core';
 
 import { INJECTABLE_OPTIONS_METADATA, INJECTOR_INTERFACES_METADATA } from '../const.ts';
 import type { ClassConstructor } from '../types.ts';
@@ -36,6 +36,15 @@ export class NeedleInjector {
     this.#bindClass(target, false);
 
     return this.#container.get(target);
+  }
+
+  /** Returns the instance bound to `token` (a class or `implementing` token); unlike `resolve()`, throws for an unbound token instead of binding it on the fly. */
+  get<T>(token: Token<T>): T {
+    if (!this.#boundTokens.has(token)) {
+      throw new Error(`No provider found for ${typeof token === 'function' ? token.name : String(token)}.`);
+    }
+
+    return this.#container.get(token);
   }
 
   /**

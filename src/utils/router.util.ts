@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import type { Context } from 'hono';
+import type { Token } from '@needle-di/core';
 
 import { MIDDLEWARE_METADATA, MODULE_METADATA } from '../const.ts';
 import type { ClassConstructor, ControllerClass, CreateRouterOption, MiddlewareHandler, OnModuleDestroy, OnModuleInit } from '../types.ts';
@@ -56,6 +57,7 @@ export function requireRequestScope(c: Context, callerName: string): NeedleInjec
 }
 
 interface ModuleLifecycle {
+  injector: NeedleInjector;
   instances: object[];
   ready: boolean;
 }
@@ -77,7 +79,7 @@ const getModuleLifecycle = (app: Hono): ModuleLifecycle => {
   const lifecycle = MODULE_LIFECYCLE.get(app);
 
   if (!lifecycle) {
-    throw new Error('initModule()/destroyModule()/isModuleReady()/healthCheck() must be called with the exact Hono instance returned by assignModule().');
+    throw new Error('initModule()/destroyModule()/isModuleReady()/healthCheck()/resolve() must be called with the exact Hono instance returned by assignModule().');
   }
 
   return lifecycle;
@@ -139,6 +141,23 @@ export async function destroyModule(app: Hono): Promise<void> {
       await instance.onModuleDestroy();
     }
   }
+}
+
+/**
+ * Returns the singleton that the module tree `assignModule()` built for
+ * `app` holds for `token`: a provider class or an `implementing` token,
+ * the same tokens `inject()` accepts. Lets plain Hono middleware on the
+ * outer app use a provider. Works before `initModule()` and never runs
+ * lifecycle hooks.
+ *
+ * ```ts
+ * const honestApp = assignModule(AppModule);
+ * app.use(auditLog(resolve<Store>(honestApp, STORE)));
+ * app.route('/', honestApp);
+ * ```
+ */
+export function resolve<T>(app: Hono, token: Token<T>): T {
+  return getModuleLifecycle(app).injector.get(token);
 }
 
 /** Reports whether `initModule(app)` has completed (and `destroyModule(app)` has not since started) — see `healthCheck()` for a ready-made route handler. */
@@ -282,7 +301,7 @@ export const assignModule = (module: ClassConstructor): Hono => {
     router.route(path && path.length > 0 ? path : '/', route);
   });
 
-  MODULE_LIFECYCLE.set(router, { instances, ready: false });
+  MODULE_LIFECYCLE.set(router, { injector, instances, ready: false });
 
   return router;
 };

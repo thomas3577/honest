@@ -8,7 +8,7 @@ import { inject, Injectable } from '../decorators/injectable.ts';
 import { Module } from '../decorators/module.decorator.ts';
 import { scoped } from '../decorators/route-params.decorator.ts';
 import type { ClassConstructor, OnModuleDestroy, OnModuleInit } from '../types.ts';
-import { assignModule, destroyModule, healthCheck, initModule, isModuleReady } from './router.util.ts';
+import { assignModule, destroyModule, healthCheck, initModule, isModuleReady, resolve } from './router.util.ts';
 
 const handleModuleRequest = async (module: ClassConstructor, path: string) => {
   const app = assignModule(module);
@@ -357,15 +357,53 @@ test('initModule() propagates an error thrown by an async controller hook', asyn
   assert.deepEqual(isModuleReady(app), false);
 });
 
-test('initModule()/destroyModule()/isModuleReady()/healthCheck() throw a clear error when given a Hono instance not returned by assignModule()', async () => {
+test('initModule()/destroyModule()/isModuleReady()/healthCheck()/resolve() throw a clear error when given a Hono instance not returned by assignModule()', async () => {
   const app = new Hono();
-  const message = 'initModule()/destroyModule()/isModuleReady()/healthCheck() must be called with the exact Hono instance returned by assignModule().';
+  const message = 'initModule()/destroyModule()/isModuleReady()/healthCheck()/resolve() must be called with the exact Hono instance returned by assignModule().';
 
   await assert.rejects(() => initModule(app), { message });
   await assert.rejects(() => destroyModule(app), { message });
   assert.throws(() => isModuleReady(app), { message });
   // getModuleLifecycle() throws before the handler ever touches its Context argument.
   assert.throws(() => healthCheck(app)(undefined as never), { message });
+  assert.throws(() => resolve(app, 'anything'), { message });
+});
+
+const RESOLVE_STORE = 'resolve-store';
+
+@Injectable({ implementing: RESOLVE_STORE })
+class ResolveStore {
+  readonly id = crypto.randomUUID();
+}
+
+@Controller('resolve-check')
+class ResolveCheckController {
+  constructor(readonly store = inject(ResolveStore)) {}
+
+  @Get()
+  get() {
+    return this.store.id;
+  }
+}
+
+@Module({ controllers: [ResolveCheckController], providers: [ResolveStore] })
+class ResolveCheckModule {}
+
+test('resolve() returns the module singleton by class or string token, the same instance a controller injects, before initModule()', async () => {
+  const honestApp = assignModule(ResolveCheckModule);
+  const store = resolve(honestApp, ResolveStore);
+
+  assert.ok(store instanceof ResolveStore);
+  assert.equal(resolve<ResolveStore>(honestApp, RESOLVE_STORE), store);
+  assert.equal(await (await honestApp.request('/resolve-check')).text(), store.id);
+});
+
+test('resolve() throws an error naming an unknown token', () => {
+  const honestApp = assignModule(ResolveCheckModule);
+  class Unregistered {}
+
+  assert.throws(() => resolve(honestApp, Unregistered), { message: 'No provider found for Unregistered.' });
+  assert.throws(() => resolve(honestApp, Symbol('missing')), { message: 'No provider found for Symbol(missing).' });
 });
 
 @Controller('ready-check')
