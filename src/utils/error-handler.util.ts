@@ -12,8 +12,8 @@ import type { StandardSchemaIssue } from '../standard-schema.ts';
  */
 const toPublicIssue = ({ message, path }: StandardSchemaIssue) => path ? { message, path: path.map((segment) => typeof segment === 'object' ? segment.key : segment) } : { message };
 
-/** Signature of a Hono `app.onError()` handler. */
-export type ErrorHandler = (err: Error, c: Context) => Response;
+/** Signature of a Hono `app.onError()` handler. Since Hono 5, the error is read from `c.error`. */
+export type ErrorHandler = (c: Context) => Response;
 
 /**
  * A ready-made `app.onError()` handler: maps `ValidationError` to 400 with
@@ -21,13 +21,18 @@ export type ErrorHandler = (err: Error, c: Context) => Response;
  * else to a logged, generic 500 — instead of relying on Hono's bare default
  * error response or hand-rolled per-project `onError` code.
  *
+ * It always returns a response, so it ends Hono's `onError` chain: register
+ * your own error middleware that calls `next()` before it.
+ *
  * @example
  * ```typescript
  * app.onError(errorHandler());
  * ```
  */
 export function errorHandler(): ErrorHandler {
-  return (err, c) => {
+  return (c) => {
+    const err = c.error;
+
     if (err instanceof ValidationError) {
       return c.json({ error: 'Validation failed', issues: err.issues.map(toPublicIssue) }, 400);
     }

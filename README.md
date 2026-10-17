@@ -10,7 +10,7 @@ Honest is a decorator-driven application toolkit for [Hono](https://hono.dev) th
 
 Honest is the same idea as [oakest](https://github.com/thomas3577/oakest) — a decorator-driven, NestJS-like toolkit — but built on Hono instead of [Oak](https://jsr.io/@oak/oak). See [Differences from oakest](#differences-from-oakest) at the end if you know oakest already.
 
-**Compatibility:** requires Hono `^4.13.13`. Honest's own `deno.json` declares this as a version range, not an exact pin, so Deno can resolve it to the same Hono install your own project already uses wherever possible — keep your project on a single resolved Hono version (on Node.js and Bun, install Hono from JSR as shown in [Installation](#installation)). Mixing two different Hono versions in one project can produce confusing `Context is not assignable to Context`-style TypeScript errors, since Hono's classes use private fields that make two separately-resolved copies of the same version nominally incompatible.
+**Compatibility:** requires Hono `^5.0.0-rc.1` and, on Node.js, version 22.12 or later. This is a pre-release line that follows the Hono 5 release candidates; for Hono 4, use Honest `0.3.x`. Honest's own `deno.json` declares this as a version range, not an exact pin, so Deno can resolve it to the same Hono install your own project already uses wherever possible — keep your project on a single resolved Hono version (on Node.js and Bun, install Hono from JSR as shown in [Installation](#installation)). Mixing two different Hono versions in one project can produce confusing `Context is not assignable to Context`-style TypeScript errors, since Hono's classes use private fields that make two separately-resolved copies of the same version nominally incompatible.
 
 ## Contents
 
@@ -61,11 +61,13 @@ Honest is published on [JSR](https://jsr.io/@dx/honest). Supported runtimes — 
 | Runtime            | Install                                                            |
 | :----------------- | :----------------------------------------------------------------- |
 | Deno               | `deno add jsr:@dx/honest`                                          |
-| Node.js (>= 22)    | `npx jsr add @dx/honest`, then `npm i hono@npm:@jsr/hono__hono`    |
+| Node.js (>= 22.12) | `npx jsr add @dx/honest`, then `npm i hono@npm:@jsr/hono__hono`    |
 | Bun                | `bunx jsr add @dx/honest`, then `bun add hono@npm:@jsr/hono__hono` |
 | Cloudflare Workers | as for Node.js                                                     |
 
-The examples import Hono as `hono`. On Deno, map it in your `deno.json` `imports` (`"hono": "jsr:@hono/hono@^4.13.13"`). On Node.js and Bun, install Hono from JSR under the name `hono` as shown above rather than the npm `hono` package: Honest's npm build depends on the JSR copy, and mixing the two produces `Context is not assignable to Context` type errors.
+While Hono 5 is a release candidate, name the versions explicitly, since the plain commands install the stable `latest` releases on Hono 4: `deno add jsr:@dx/honest@0.4.0-rc.1`, or `npx jsr add @dx/honest@0.4.0-rc.1` and `npm i hono@npm:@jsr/hono__hono@5.0.0-rc.1`.
+
+The examples import Hono as `hono`. On Deno, map it in your `deno.json` `imports` (`"hono": "jsr:@hono/hono@^5.0.0-rc.1"`). On Node.js and Bun, install Hono from JSR under the name `hono` as shown above rather than the npm `hono` package: Honest's npm build depends on the JSR copy, and mixing the two produces `Context is not assignable to Context` type errors.
 
 Honest uses standard (TC39) decorators. Deno, Bun and Wrangler (Workers) run them directly. Node.js's built-in type stripping cannot (decorators are not erasable syntax), so run TypeScript through [tsx](https://tsx.is) (`npx tsx main.ts`) or compile with `tsc` (`target` ES2022 or later, without `experimentalDecorators`).
 
@@ -607,6 +609,8 @@ app.onError(errorHandler());
 Deno.serve(app.fetch);
 ```
 
+Since Hono 5, `onError()` registers middleware: handlers receive `(c, next)` and read the error from `c.error`. `errorHandler()` always returns a response, so it ends that chain. Register your own error middleware (logging, reporting) before it and call `next()` there.
+
 Throw `HttpError(status, message, details?)` from a handler, provider, or middleware to produce a specific response through the same handler:
 
 ```typescript
@@ -703,13 +707,13 @@ A test double works as a provider the same way a real one does — nothing test-
 
 ### Production Hardening
 
-None of the following needs any honest-specific code — `assignModule()` returns a plain `Hono` instance, so Hono's own middleware (and the wider Hono ecosystem) applies directly, before you mount your module. Honest re-exports only its own API from `@dx/honest`; import Hono submodules like `hono/cors` or `hono/secure-headers` straight from `hono`, same as in a plain Hono app. On Node.js and Bun they resolve from the installed package. On Deno, each submodule needs its own entry in your `deno.json` `imports` — a single trailing-slash entry (`"hono/": "jsr:@hono/hono@^4.13.13/"`) does not resolve JSR subpaths, so list the ones you use explicitly:
+None of the following needs any honest-specific code — `assignModule()` returns a plain `Hono` instance, so Hono's own middleware (and the wider Hono ecosystem) applies directly, before you mount your module. Honest re-exports only its own API from `@dx/honest`; import Hono submodules like `hono/cors` or `hono/secure-headers` straight from `hono`, same as in a plain Hono app. On Node.js and Bun they resolve from the installed package. On Deno, each submodule needs its own entry in your `deno.json` `imports` — a single trailing-slash entry (`"hono/": "jsr:@hono/hono@^5.0.0-rc.1/"`) does not resolve JSR subpaths, so list the ones you use explicitly:
 
 ```jsonc
 "imports": {
-  "hono": "jsr:@hono/hono@^4.13.13",
-  "hono/cors": "jsr:@hono/hono@^4.13.13/cors",
-  "hono/secure-headers": "jsr:@hono/hono@^4.13.13/secure-headers"
+  "hono": "jsr:@hono/hono@^5.0.0-rc.1",
+  "hono/cors": "jsr:@hono/hono@^5.0.0-rc.1/cors",
+  "hono/secure-headers": "jsr:@hono/hono@^5.0.0-rc.1/secure-headers"
 }
 ```
 
@@ -756,13 +760,13 @@ Honest mirrors oakest's decorator API almost 1:1, but Hono's request-handling mo
 
 Since the decorator API itself carries over 1:1, most migration effort lands in code that talked to Oak's `Context`/`Request`/`Response` directly rather than through honest's decorators. Quick idiom lookup:
 
-| Oak                                          | Hono / honest                                                                                                                                   |
-| :------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `:name*` / `:name+` route params             | `:name{.*}` / `:name{.+}` — see [Route Arguments](#route-arguments); honest throws at decoration time if you use the Oak form                   |
-| `ctx.throw(status, message)`                 | `throw new HttpError(status, message)` — see [Error Handling](#error-handling)                                                                  |
-| `ctx.response.body = x`                      | `return x;` from the handler, or `c.html(x)`/`c.json(x)`/... via `ctx()` — see the return-value table above                                     |
-| `ctx.response.status = code`                 | `return c.json(x, code)` (status is the return's 2nd argument), or throw `HttpError(code, ...)`                                                 |
-| `ctx.upgrade()`                              | `Deno.upgradeWebSocket(c.req.raw)` inside a handler that received `c` via `ctx()`                                                               |
-| `ctx.sendEvents()` / `ServerSentEventTarget` | `streamSSE(c, async (stream) => { ... })` from `hono/streaming`, returned from the handler                                                      |
-| `send(ctx, path, { root })` (static files)   | `serveStatic({ root })` from `hono/deno`, mounted on the underlying `Hono` app (e.g. `app.use('/static/*', serveStatic({ root: './public' }))`) |
-| `ctx.request.ip`                             | honest's `ip()` resolver, or `c.req` via `ctx()` — see [`ip()`](#route-arguments) above                                                         |
+| Oak                                          | Hono / honest                                                                                                                                                                                          |
+| :------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `:name*` / `:name+` route params             | `:name{.*}` / `:name{.+}` — see [Route Arguments](#route-arguments); honest throws at decoration time if you use the Oak form                                                                          |
+| `ctx.throw(status, message)`                 | `throw new HttpError(status, message)` — see [Error Handling](#error-handling)                                                                                                                         |
+| `ctx.response.body = x`                      | `return x;` from the handler, or `c.html(x)`/`c.json(x)`/... via `ctx()` — see the return-value table above                                                                                            |
+| `ctx.response.status = code`                 | `return c.json(x, code)` (status is the return's 2nd argument), or throw `HttpError(code, ...)`                                                                                                        |
+| `ctx.upgrade()`                              | `Deno.upgradeWebSocket(c.req.raw)` inside a handler that received `c` via `ctx()`                                                                                                                      |
+| `ctx.sendEvents()` / `ServerSentEventTarget` | `streamSSE(c, async (stream) => { ... })` from `hono/streaming`, returned from the handler                                                                                                             |
+| `send(ctx, path, { root })` (static files)   | `serveStatic({ root })` from `@hono/deno` (Hono 5 moved runtime adapters to their own packages), mounted on the underlying `Hono` app (e.g. `app.use('/static/*', serveStatic({ root: './public' }))`) |
+| `ctx.request.ip`                             | honest's `ip()` resolver, or `c.req` via `ctx()` — see [`ip()`](#route-arguments) above                                                                                                                |

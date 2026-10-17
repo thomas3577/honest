@@ -63,3 +63,25 @@ test('errorHandler() maps unknown errors to a generic 500', async () => {
   assert.deepEqual(response.status, 500);
   assert.deepEqual(await response.json(), { error: 'Internal Server Error' });
 });
+
+test('errorHandler() runs after error middleware that calls next(), and gets non-Error throws wrapped by Hono', async () => {
+  const app = new Hono();
+  const seen: unknown[] = [];
+
+  app.get('/', () => {
+    throw 'boom';
+  });
+  app.onError(async (c, next) => {
+    seen.push(c.error);
+    await next();
+  });
+  app.onError(errorHandler());
+
+  const response = await app.request('/');
+
+  assert.deepEqual(response.status, 500);
+  assert.deepEqual(await response.json(), { error: 'Internal Server Error' });
+  assert.ok(seen[0] instanceof Error);
+  assert.deepEqual(seen[0].message, 'boom');
+  assert.deepEqual(seen[0].cause, 'boom');
+});

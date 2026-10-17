@@ -1,6 +1,6 @@
 {
   "name": "@dx/honest",
-  "version": "0.3.0",
+  "version": "0.4.0-rc.1",
   "license": "MIT",
   "nodeModulesDir": "none",
   "exports": {
@@ -13,7 +13,7 @@
   },
   "imports": {
     "@needle-di/core": "jsr:@needle-di/core@1.2.1",
-    "hono": "jsr:@hono/hono@^4.13.13",
+    "hono": "jsr:@hono/hono@^5.0.0-rc.1",
     "@std/log": "jsr:@std/log@0.224.14"
   },
   "publish": {

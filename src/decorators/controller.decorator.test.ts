@@ -7,6 +7,7 @@ import { Get, HttpCode, Post } from './http-methods.decorator.ts';
 import { body, ctx, custom, headers, ip, next, param, query, req, res } from './route-params.decorator.ts';
 import { Controller, sendResult } from './controller.decorator.ts';
 import { registerMiddlewareMethodDecorator } from '../utils/router.util.ts';
+import { errorHandler } from '../utils/error-handler.util.ts';
 import { mountController } from '../utils/mount-controller.test.ts';
 import type { ControllerClass, ParamData } from '../types.ts';
 
@@ -529,4 +530,27 @@ test('@HttpCode() rejects a status outside 200-599', () => {
   assert.throws(() => HttpCode(100), { message: '@HttpCode() expects an integer status from 200 to 599, got 100.' });
   assert.throws(() => HttpCode(600), { message: '@HttpCode() expects an integer status from 200 to 599, got 600.' });
   assert.throws(() => HttpCode(201.5), { message: '@HttpCode() expects an integer status from 200 to 599, got 201.5.' });
+});
+
+test('Controller handlers that return undefined run the outer app notFound() middleware', async () => {
+  const app = mountController(new UndefinedResultController() as unknown as ControllerClass);
+
+  app.notFound((c) => c.json({ error: 'custom not found' }, 404));
+
+  const response = await app.request('http://localhost/empty/noop');
+
+  assert.deepEqual(response.status, 404);
+  assert.deepEqual(await response.json(), { error: 'custom not found' });
+});
+
+test('sendResult() turns a value JSON cannot serialize (a function) into a 500 via errorHandler()', async () => {
+  const app = new Hono();
+
+  app.get('/function', (c) => sendResult(c, () => 'not json'));
+  app.onError(errorHandler());
+
+  const response = await app.request('/function');
+
+  assert.deepEqual(response.status, 500);
+  assert.deepEqual(await response.json(), { error: 'Internal Server Error' });
 });
