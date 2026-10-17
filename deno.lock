@@ -1,7 +1,7 @@
 {
   "version": "5",
   "specifiers": {
-    "jsr:@hono/hono@^4.13.13": "4.13.13",
+    "jsr:@hono/hono@^5.0.0-rc.1": "5.0.0-rc.1",
     "jsr:@needle-di/core@1.2.1": "1.2.1",
     "jsr:@std/fmt@^1.0.5": "1.0.10",
     "jsr:@std/fs@^1.0.11": "1.0.24",
@@ -10,12 +10,12 @@
     "npm:@jsr/std__log@0.224.14": "0.224.14",
     "npm:@needle-di/core@1.2.1": "1.2.1",
     "npm:@scalar/hono-api-reference@0.11.16": "0.11.16_hono@4.13.13",
-    "npm:hono@4.13.13": "4.13.13",
+    "npm:hono@5.0.0-rc.1": "5.0.0-rc.1",
     "npm:tsx@4.23.15": "4.23.15"
   },
   "jsr": {
-    "@hono/hono@4.13.13": {
-      "integrity": "dec817b8600fc2835c259d875a69e849a706f6d25e8d0643d75c97f7d0afcdf8"
+    "@hono/hono@5.0.0-rc.1": {
+      "integrity": "24c0c0aa0af49e4a6c3e70c8cbf72071d070246f397c176364f45bbccb3bd311"
     },
     "@needle-di/core@1.2.1": {
       "integrity": "fa6491594d66754f7793abba982a2ddba23eea9129ccdc7f6f66efcad1f56eb2"
@@ -230,7 +230,7 @@
       "integrity": "sha512-y0duqBJF2yQhkkk7xMFyWSx06+Y0ImOLtVKDH3d+jgTaVGbAtyxwkuKmj+Dd7eq3t9P7XnZx4YgBJ0S9WzsIQQ==",
       "dependencies": [
         "@scalar/client-side-rendering",
-        "hono"
+        "hono@4.13.13"
       ]
     },
     "@scalar/schemas@0.8.3": {
@@ -293,6 +293,9 @@
     "hono@4.13.13": {
       "integrity": "sha512-CQ46U0ZkAGmbT/4UxdzzGJpacP2IeKgY4a5/tOI9AABbpOMfK739wfDXmv1usCk+3RkKj1hQy4/fjhiwa2xlrA=="
     },
+    "hono@5.0.0-rc.1": {
+      "integrity": "sha512-vTcfU9yAggXh/+ZSi8zpYbzYDubCgFnSt8d5afCAlgkd38dyYb3CVtOh8YWhS65NkEqBseCsTj/P8mceJ+7KNA=="
+    },
     "nanoid@5.1.16": {
       "integrity": "sha512-kVrnsrJqMR8+oLJnGEmSWw9BivK5mt7H3FZatVRjrc5wGqFYuBxX1yG7+A7Gi5AefkX6t/oCkizcQgpu0cY1dQ==",
       "bin": true
@@ -322,7 +325,7 @@
   },
   "workspace": {
     "dependencies": [
-      "jsr:@hono/hono@^4.13.13",
+      "jsr:@hono/hono@^5.0.0-rc.1",
       "jsr:@needle-di/core@1.2.1",
       "jsr:@std/log@0.224.14"
     ],
@@ -330,7 +333,7 @@
       "dependencies": [
         "npm:@jsr/std__log@0.224.14",
         "npm:@needle-di/core@1.2.1",
-        "npm:hono@4.13.13",
+        "npm:hono@5.0.0-rc.1",
         "npm:tsx@4.23.15"
       ]
     }

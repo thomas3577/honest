@@ -7,7 +7,7 @@
   "dependencies": {
     "@needle-di/core": "1.2.1",
     "@std/log": "npm:@jsr/std__log@0.224.14",
-    "hono": "4.13.13"
+    "hono": "5.0.0-rc.1"
   },
   "devDependencies": {
     "tsx": "4.23.15"

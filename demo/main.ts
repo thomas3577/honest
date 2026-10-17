@@ -1,5 +1,6 @@
 import process from 'node:process';
 import { Hono } from 'hono';
+import type { MiddlewareHandler } from 'hono';
 // Demo-only dependency: not in deno.json's imports on purpose, so the
 // published package carries zero trace of it — see the Scalar section in
 // the README for why an inline npm: specifier here is enough.
@@ -19,7 +20,8 @@ const openApiDocument = buildOpenApiDocument(AppModule, {
 });
 
 app.get('/openapi.json', (c) => c.json(openApiDocument));
-app.get('/reference', Scalar({ url: '/openapi.json' }));
+// Cast until @scalar/hono-api-reference declares Hono 5 support (its types still target Hono 4).
+app.get('/reference', Scalar({ url: '/openapi.json' }) as unknown as MiddlewareHandler);
 app.get('/health', healthCheck(honestApp));
 
 await initModule(honestApp);

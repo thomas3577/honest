@@ -4,6 +4,28 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.4.0-rc.1] - 2026-10-17
+
+Pre-release on Hono 5 (`5.0.0-rc.1`). The stable `latest` stays on `0.3.x` with Hono 4 until Hono 5 is stable.
+
+### Changed
+
+- **Breaking:** requires Hono `^5.0.0-rc.1` and, on Node.js, version 22.12 or later.
+- **Breaking:** `errorHandler()` returns a Hono 5 `onError()` handler that reads the error from `c.error`. The `ErrorHandler` type is now `(c: Context) => Response`. `app.onError(errorHandler())` keeps working unchanged; direct calls like `errorHandler()(err, c)` do not.
+
+### Upgrading to Hono 5
+
+Changes in Hono itself that apps using Honest may need to handle (see the [Hono migration guide](https://hono.dev/docs/guides/migrating-to-v5)):
+
+- `app.onError()` handlers take `(c, next)` instead of `(err, c)`; read the error from `c.error`. `onError()` and `notFound()` register middleware that runs in registration order, accepts an optional path, and is imported from sub-apps by `route()`. A controller that returns `undefined` now runs your app's `notFound()` middleware.
+- Thrown non-`Error` values are wrapped in an `Error`; the original value is in `c.error.cause`.
+- `c.json()` throws a `TypeError` for `undefined`, functions and symbols. A handler returning a function now responds with a 500 through `errorHandler()`.
+- `c.req.json()` returns `Promise<unknown>`; `c.req.query()` and `c.req.queries()` without a key return values typed as possibly `undefined`.
+- Wildcard matching is consistent across routers, so some `*` patterns match differently.
+- Runtime adapters moved to their own packages (`hono/deno` → `@hono/deno`, `hono/bun` → `@hono/bun`, ...); `hono/cloudflare-pages` is removed. `hono/adapter` stays.
+- Removed: `app.mount()` (use `hono/mount`), `app.fire()`, `c.req.routePath` and `c.req.matchedRoutes` (use `hono/route`), `getQueryStrings()`. `UnOfficalStatusCode` is renamed `UnofficialStatusCode`.
+- Unchanged module paths: `hono/html`, `hono/cookie`, `hono/utils/cookie`, `hono/utils/html`, `hono/streaming`, `hono/secure-headers`, `hono/body-limit`.
+
 ## [0.3.0] - 2026-10-15
 
 ### Added
